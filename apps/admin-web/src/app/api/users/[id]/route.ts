@@ -60,6 +60,10 @@ export async function PATCH(
           err instanceof BackendApiError
             ? err.message
             : "Unable to update technician.",
+        details:
+          err instanceof BackendApiError
+            ? err.details
+            : undefined,
       },
       {
         status:
@@ -101,6 +105,10 @@ export async function DELETE(
           err instanceof BackendApiError
             ? err.message
             : "Unable to delete technician.",
+        details:
+          err instanceof BackendApiError
+            ? err.details
+            : undefined,
       },
       {
         status:

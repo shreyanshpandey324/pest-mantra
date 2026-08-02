@@ -26,6 +26,14 @@ export const technicianController = {
     });
   }),
 
+  getById: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const technician = await technicianService.getById(req.params.id);
+
+    sendSuccess(res, 200, "Technician profile loaded successfully", {
+      technician,
+    });
+  }),
+
   startDuty: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const scope = getCallerScope(req);
     const profile = await technicianService.startDuty(scope.userId);

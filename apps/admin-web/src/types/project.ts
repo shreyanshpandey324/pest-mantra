@@ -68,6 +68,7 @@ export interface TechnicianListItem {
   phone: string;
 
   email?: string;
+  branchId?: string;
   isActive: boolean;
 
   employeeCode: string;
@@ -80,6 +81,19 @@ export interface TechnicianListItem {
     | "en_route"
     | "on_site"
     | "busy";
+}
+
+export interface EditTechnicianFormData {
+  id: string;
+  name: string;
+  phone: string;
+  email?: string;
+  branchId?: string;
+  employeeCode: string;
+  vehicleNumber?: string;
+  skills: string[];
+  isActive: boolean;
+  dutyStatus: TechnicianListItem["dutyStatus"];
 }
 
 export interface ProjectStatusHistoryEntry {

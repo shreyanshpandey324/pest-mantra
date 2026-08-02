@@ -1,6 +1,9 @@
+import mongoose from "mongoose";
 import { User, UserRole, IUser } from "../models/User";
 import { TechnicianProfile, DutyStatus, ITechnicianProfile } from "../models/TechnicianProfile";
 import { DutyLog } from "../models/DutyLog";
+import { Branch } from "../models/Branch";
+import { Project, ProjectStatus } from "../models/Project";
 import { ApiError } from "../utils/ApiError";
 
 export interface TechnicianListItem {
@@ -23,6 +26,68 @@ export const technicianService = {
         return profile ? { user, profile } : null;
       })
       .filter((item): item is TechnicianListItem => item !== null);
+  },
+
+  async getById(technicianId: string) {
+    if (!mongoose.Types.ObjectId.isValid(technicianId)) {
+      throw ApiError.notFound("Technician not found");
+    }
+
+    const user = await User.findById(technicianId).select(
+      "-passwordHash -failedLoginAttempts -lockedUntil -tokenVersion"
+    );
+
+    if (!user || user.role !== UserRole.TECHNICIAN) {
+      throw ApiError.notFound("Technician not found");
+    }
+
+    const profile = await TechnicianProfile.findOne({ userId: user._id });
+    if (!profile) {
+      throw ApiError.notFound("Technician not found");
+    }
+
+    const branch = user.branchId ? await Branch.findById(user.branchId) : null;
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+
+    const [todayAssignedJobs, totalCompletedJobs] = await Promise.all([
+      Project.countDocuments({
+        assignedTechnicianId: user._id,
+        scheduledDate: { $gte: todayStart, $lte: todayEnd },
+      }),
+      Project.countDocuments({
+        assignedTechnicianId: user._id,
+        status: ProjectStatus.COMPLETED,
+      }),
+    ]);
+
+    return {
+      id: user._id.toString(),
+      name: user.name,
+      employeeCode: profile.employeeCode,
+      phone: user.phone,
+      email: user.email ?? null,
+      dutyStatus: profile.currentDutyStatus,
+      branch: branch
+        ? {
+            id: branch._id.toString(),
+            name: branch.name,
+            city: branch.city,
+            state: branch.state,
+            isActive: branch.isActive,
+          }
+        : null,
+      createdAt: user.createdAt,
+      isActive: user.isActive,
+      stats: {
+        todayAssignedJobs,
+        totalCompletedJobs,
+      },
+    };
   },
 
   /**

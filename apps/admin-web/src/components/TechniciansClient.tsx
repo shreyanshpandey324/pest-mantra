@@ -3,8 +3,9 @@
 import { useMemo, useState, type ComponentType } from "react";
 import { useRouter } from "next/navigation";
 import { ui } from "@/lib/ui-classes";
-import { TechnicianListItem } from "@/types/project";
+import { EditTechnicianFormData, TechnicianListItem } from "@/types/project";
 import { AddTechnicianModal } from "./AddTechnicianModal";
+import { EditTechnicianModal } from "./EditTechnicianModal";
 
 interface TechniciansClientProps {
   technicians: TechnicianListItem[];
@@ -35,6 +36,7 @@ export function TechniciansClient({
 
   const [search, setSearch] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingTechnician, setEditingTechnician] = useState<EditTechnicianFormData | null>(null);
 
   const AddTechnicianModalComponent =
     AddTechnicianModal as unknown as ComponentType<{
@@ -199,6 +201,26 @@ export function TechniciansClient({
               <td className="px-5 py-4 text-right">
                 <button
                   onClick={() =>
+                    setEditingTechnician({
+                      id: tech.id,
+                      name: tech.name,
+                      phone: tech.phone,
+                      email: tech.email,
+                      branchId: tech.branchId,
+                      employeeCode: tech.employeeCode,
+                      vehicleNumber: tech.vehicleNumber,
+                      skills: tech.skills,
+                      isActive: tech.isActive,
+                      dutyStatus: tech.dutyStatus,
+                    })
+                  }
+                  className={`${ui.btnGhostSm} mr-2`}
+                >
+                  Edit
+                </button>
+
+                <button
+                  onClick={() =>
                     deleteTechnician(
                       tech.id,
                       tech.name
@@ -220,6 +242,17 @@ export function TechniciansClient({
         onClose={() => setShowAddModal(false)}
         onCreated={() => {
           setShowAddModal(false);
+          router.refresh();
+        }}
+      />
+    )}
+
+    {editingTechnician && (
+      <EditTechnicianModal
+        technician={editingTechnician}
+        onClose={() => setEditingTechnician(null)}
+        onUpdated={() => {
+          setEditingTechnician(null);
           router.refresh();
         }}
       />

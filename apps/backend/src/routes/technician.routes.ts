@@ -12,6 +12,13 @@ router.get(
   technicianController.list
 );
 
+router.get(
+  "/:id",
+  authenticate,
+  requireRole(UserRole.SUPER_ADMIN, UserRole.OFFICE_ADMIN),
+  technicianController.getById
+);
+
 router.post("/duty/start", authenticate, requireRole(UserRole.TECHNICIAN), technicianController.startDuty);
 router.post("/duty/end", authenticate, requireRole(UserRole.TECHNICIAN), technicianController.endDuty);
 router.get("/duty/status", authenticate, requireRole(UserRole.TECHNICIAN), technicianController.getMyStatus);
