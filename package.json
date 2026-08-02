@@ -1,0 +1,26 @@
+{
+  "name": "pest-mantra",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Pest Mantra Field Service Management System — monorepo",
+  "workspaces": [
+    "apps/backend",
+    "apps/admin-web",
+    "apps/technician-app"
+  ],
+  "scripts": {
+    "dev:backend": "npm run dev --workspace=@pest-mantra/backend",
+    "dev:web": "npm run dev --workspace=@pest-mantra/admin-web",
+    "dev:technician": "npm run dev --workspace=@pest-mantra/technician-app",
+    "build:backend": "npm run build --workspace=@pest-mantra/backend",
+    "build:web": "npm run build --workspace=@pest-mantra/admin-web",
+    "build:technician": "npm run build --workspace=@pest-mantra/technician-app",
+    "typecheck:backend": "npm run typecheck --workspace=@pest-mantra/backend",
+    "typecheck:web": "npm run typecheck --workspace=@pest-mantra/admin-web",
+    "typecheck:technician": "npm run typecheck --workspace=@pest-mantra/technician-app",
+    "seed:superadmin": "npm run seed:superadmin --workspace=@pest-mantra/backend"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

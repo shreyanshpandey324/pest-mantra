@@ -1,0 +1,65 @@
+@import "tailwindcss";
+
+/* ==========================================================================
+   Pest Mantra Technician App — Tailwind v4 theme tokens
+   Same brand tokens as admin-web (dark, hazard-orange accent) for a
+   consistent identity across both apps — this is a separate Next.js
+   app, not a shared package, so the tokens are duplicated here
+   rather than imported; keep the two files in sync by hand if the
+   palette ever changes.
+   ========================================================================== */
+@theme {
+  --color-canvas: #0f1115;
+  --color-surface: #171a21;
+  --color-surface-2: #1f232c;
+  --color-border-default: #2a2f3a;
+  --color-border-strong: #3a4150;
+
+  --color-ink: #f2f1ed;
+  --color-ink-muted: #9aa1ac;
+  --color-ink-faint: #6b7280;
+
+  --color-accent: #ff7a1a;
+  --color-accent-hover: #ff8f3d;
+  --color-accent-ink: #171a21;
+
+  --color-success: #3ddc84;
+  --color-danger: #ff5c5c;
+  --color-warning: #ffc94d;
+
+  --font-sans: "Inter", "Segoe UI", system-ui, sans-serif;
+  --font-display: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+}
+
+body {
+  @apply bg-canvas text-ink font-sans antialiased;
+  color-scheme: dark;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  @apply font-display font-semibold;
+}
+
+:focus-visible {
+  @apply outline-2 outline-accent outline-offset-2 rounded-md;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

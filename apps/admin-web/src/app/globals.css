@@ -1,0 +1,68 @@
+@import "tailwindcss";
+
+/* ==========================================================================
+   Pest Mantra Admin — Tailwind v4 theme tokens
+   Same field-ops console direction as before (dark, hazard-orange
+   accent) — now expressed as Tailwind theme colors instead of
+   hand-written CSS classes, per the switch to Tailwind-only styling.
+   Each --color-* / --font-* token below becomes a Tailwind utility
+   automatically (e.g. --color-accent -> bg-accent, text-accent,
+   border-accent; --font-display -> font-display).
+   ========================================================================== */
+@theme {
+  --color-canvas: #0f1115;
+  --color-surface: #171a21;
+  --color-surface-2: #1f232c;
+  --color-border-default: #2a2f3a;
+  --color-border-strong: #3a4150;
+
+  --color-ink: #f2f1ed;
+  --color-ink-muted: #9aa1ac;
+  --color-ink-faint: #6b7280;
+
+  --color-accent: #ff7a1a;
+  --color-accent-hover: #ff8f3d;
+  --color-accent-ink: #171a21;
+
+  --color-success: #3ddc84;
+  --color-danger: #ff5c5c;
+  --color-warning: #ffc94d;
+
+  --font-sans: "Inter", "Segoe UI", system-ui, sans-serif;
+  --font-display: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+}
+
+body {
+  @apply bg-canvas text-ink font-sans antialiased;
+  color-scheme: dark;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  @apply font-display font-semibold;
+}
+
+/* Visible, high-contrast focus ring everywhere — required for keyboard
+   navigation and never suppressed. */
+:focus-visible {
+  @apply outline-2 outline-accent outline-offset-2 rounded-md;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
