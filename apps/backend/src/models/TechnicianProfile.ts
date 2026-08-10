@@ -10,6 +10,7 @@ export enum DutyStatus {
 
 export interface ITechnicianProfile extends Document {
   _id: Types.ObjectId;
+  companyId?: Types.ObjectId;
   userId: Types.ObjectId;
   employeeCode: string;
   skills: string[];
@@ -25,46 +26,64 @@ export interface ITechnicianProfile extends Document {
   updatedAt: Date;
 }
 
-const technicianProfileSchema = new Schema<ITechnicianProfile>(
-  {
-    userId: {
-      type: Schema.Types.ObjectId,
-      ref: "User",
-      required: true,
-      unique: true,
-    },
-    employeeCode: {
-      type: String,
-      required: true,
-      unique: true,
-      trim: true,
-    },
-    skills: {
-      type: [String],
-      default: [],
-    },
-    vehicleNumber: {
-      type: String,
-      trim: true,
-    },
-    currentDutyStatus: {
-      type: String,
-      enum: Object.values(DutyStatus),
-      default: DutyStatus.OFF_DUTY,
-    },
-    lastStatusChangeAt: {
-      type: Date,
-    },
-    lastKnownLocation: {
-      lat: { type: Number },
-      lng: { type: Number },
-      at: { type: Date },
-    },
-  },
-  { timestamps: true }
-);
+const technicianProfileSchema =
+  new Schema<ITechnicianProfile>(
+    {
+      companyId: {
+        type: Schema.Types.ObjectId,
+        ref: "Company",
+        index: true,
+      },
 
-export const TechnicianProfile = model<ITechnicianProfile>(
-  "TechnicianProfile",
-  technicianProfileSchema
-);
+      userId: {
+        type: Schema.Types.ObjectId,
+        ref: "User",
+        required: true,
+        unique: true,
+      },
+
+      employeeCode: {
+        type: String,
+        required: true,
+        trim: true,
+      },
+
+      skills: {
+        type: [String],
+        default: [],
+      },
+
+      vehicleNumber: {
+        type: String,
+        trim: true,
+      },
+
+      currentDutyStatus: {
+        type: String,
+        enum: Object.values(DutyStatus),
+        default: DutyStatus.OFF_DUTY,
+      },
+
+      lastStatusChangeAt: {
+        type: Date,
+      },
+
+      lastKnownLocation: {
+        lat: { type: Number },
+        lng: { type: Number },
+        at: { type: Date },
+      },
+    },
+    { timestamps: true }
+  );
+
+technicianProfileSchema.index({
+  companyId: 1,
+  employeeCode: 1,
+});
+
+export const TechnicianProfile =
+  model<ITechnicianProfile>(
+    "TechnicianProfile",
+    technicianProfileSchema
+  );

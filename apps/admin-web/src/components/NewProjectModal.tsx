@@ -61,9 +61,13 @@ export function NewProjectModal({ onClose, onCreated }: NewProjectModalProps) {
     return true;
   }
 
-  function handleNext() {
+  function handleNext(e?: React.MouseEvent<HTMLButtonElement>) {
+    e?.preventDefault();
+
     if (!validateStep(step)) return;
+
     const currentIndex = steps.indexOf(step);
+
     if (currentIndex < steps.length - 1) {
       setStep(steps[currentIndex + 1]);
     }
@@ -171,7 +175,18 @@ export function NewProjectModal({ onClose, onCreated }: NewProjectModalProps) {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5 px-6 py-6 sm:px-7">
+        <form
+          onSubmit={(e) => {
+            if (step !== "Review") {
+              e.preventDefault();
+              return;
+            }
+
+            handleSubmit(e);
+          }}
+          noValidate
+          className="flex flex-col gap-5 px-6 py-6 sm:px-7"
+        >
           {step === "Customer" && (
             <div className="grid gap-4 md:grid-cols-2">
               <div className="md:col-span-2 rounded-2xl border border-border-default/70 bg-surface-2/60 p-4">
@@ -319,9 +334,9 @@ export function NewProjectModal({ onClose, onCreated }: NewProjectModalProps) {
               )}
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex gap-3"> 
               {step !== "Review" ? (
-                <button type="button" className={ui.btnPrimary} onClick={handleNext}>
+                <button type="button" className={ui.btnPrimary} onClick={(e) => handleNext(e)}>
                   Continue
                 </button>
               ) : (

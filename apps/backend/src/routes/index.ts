@@ -6,14 +6,43 @@ import projectRoutes from "./project.routes";
 import technicianRoutes from "./technician.routes";
 import chemicalRoutes from "./chemical.routes";
 import locationRoutes from "./location.routes";
+import companyRoutes from "./company.routes";
 
 const router = Router();
 
-router.use("/auth", authRoutes);
-router.use("/users", userRoutes);
-router.use("/projects", projectRoutes);
-router.use("/technicians", technicianRoutes);
-router.use("/chemicals", chemicalRoutes);
-router.use("/location", locationRoutes);
+router.use(
+  "/auth",
+  authRoutes
+);
+
+router.use(
+  "/users",
+  userRoutes
+);
+
+router.use(
+  "/projects",
+  projectRoutes
+);
+
+router.use(
+  "/technicians",
+  technicianRoutes
+);
+
+router.use(
+  "/chemicals",
+  chemicalRoutes
+);
+
+router.use(
+  "/location",
+  locationRoutes
+);
+
+router.use(
+  "/companies",
+  companyRoutes
+);
 
 export default router;

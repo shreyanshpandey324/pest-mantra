@@ -2,6 +2,7 @@ import { Schema, model, Document, Types } from "mongoose";
 
 export interface IDutyLog extends Document {
   _id: Types.ObjectId;
+  companyId?: Types.ObjectId;
   technicianId: Types.ObjectId;
   dutyStartAt: Date;
   dutyEndAt?: Date;
@@ -10,14 +11,42 @@ export interface IDutyLog extends Document {
 
 const dutyLogSchema = new Schema<IDutyLog>(
   {
-    technicianId: { type: Schema.Types.ObjectId, ref: "User", required: true },
-    dutyStartAt: { type: Date, required: true },
-    dutyEndAt: { type: Date },
+    companyId: {
+      type: Schema.Types.ObjectId,
+      ref: "Company",
+      index: true,
+    },
+
+    technicianId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+
+    dutyStartAt: {
+      type: Date,
+      required: true,
+    },
+
+    dutyEndAt: {
+      type: Date,
+    },
   },
-  { timestamps: { createdAt: true, updatedAt: false } }
+  {
+    timestamps: {
+      createdAt: true,
+      updatedAt: false,
+    },
+  }
 );
 
-// Fast lookup for "who is currently on duty" — dutyEndAt not set yet.
-dutyLogSchema.index({ technicianId: 1, dutyEndAt: 1 });
+dutyLogSchema.index({
+  companyId: 1,
+  technicianId: 1,
+  dutyEndAt: 1,
+});
 
-export const DutyLog = model<IDutyLog>("DutyLog", dutyLogSchema);
+export const DutyLog = model<IDutyLog>(
+  "DutyLog",
+  dutyLogSchema
+);

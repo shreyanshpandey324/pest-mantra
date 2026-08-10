@@ -40,6 +40,12 @@ export enum PaymentMethod {
   CHEQUE = "cheque",
   ADVANCE = "advance",
 }
+export interface AssignedTechnician {
+  _id: string;
+  name: string;
+  phone: string;
+  email?: string;
+}
 
 export interface Project {
   _id: string;
@@ -49,7 +55,7 @@ export interface Project {
   address: string;
   serviceType: ServiceType;
   status: ProjectStatus;
-  assignedTechnicianId?: string;
+  assignedTechnicianId?: AssignedTechnician;
   assignedBy?: string;
   assignedAt?: string;
   scheduledDate?: string;

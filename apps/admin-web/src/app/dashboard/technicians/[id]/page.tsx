@@ -1,7 +1,10 @@
+"use client";
+
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { EditTechnicianModal } from "@/components/EditTechnicianModal";
+import { DeleteConfirmationModal } from "@/components/DeleteConfirmationModal";
 import { ui } from "@/lib/ui-classes";
 import { EditTechnicianFormData, TechnicianListItem } from "@/types/project";
 
@@ -28,6 +31,8 @@ type TechnicianProfileData = Omit<TechnicianListItem, "email"> & {
 interface TechnicianProfileApiResponse {
   technician: TechnicianProfileData;
 }
+
+type Toast = { kind: "success" | "error"; text: string } | null;
 
 function formatDutyStatus(value: string): string {
   switch (value) {
@@ -61,6 +66,9 @@ export default function TechnicianProfilePage({ params }: TechnicianProfilePageP
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingTechnician, setEditingTechnician] = useState<EditTechnicianFormData | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [toast, setToast] = useState<Toast>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -125,14 +133,15 @@ export default function TechnicianProfilePage({ params }: TechnicianProfilePageP
     };
   }, [id]);
 
-  async function handleDelete() {
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), 3500);
+    return () => clearTimeout(timer);
+  }, [toast]);
+
+  async function handleConfirmDelete() {
     if (!technician) return;
-
-    const confirmed = window.confirm(
-      `Delete technician "${technician.name}"?\n\nThis action cannot be undone.`
-    );
-
-    if (!confirmed) return;
+    setIsDeleting(true);
 
     try {
       const response = await fetch(`/api/users/${technician.id}`, {
@@ -143,14 +152,17 @@ export default function TechnicianProfilePage({ params }: TechnicianProfilePageP
       const json = await response.json();
 
       if (!response.ok || !json.success) {
-        alert(json.message ?? "Unable to delete technician.");
-        return;
+        throw new Error(json.message ?? "Unable to delete technician.");
       }
 
-      alert("Technician deleted successfully.");
       router.push("/dashboard/technicians");
-    } catch {
-      alert("Unable to connect to server.");
+    } catch (err) {
+      setToast({
+        kind: "error",
+        text: err instanceof Error ? err.message : "Unable to connect to server.",
+      });
+      setIsDeleting(false);
+      setConfirmingDelete(false);
     }
   }
 
@@ -160,8 +172,12 @@ export default function TechnicianProfilePage({ params }: TechnicianProfilePageP
         <Link href="/dashboard/technicians" className="mb-5 inline-block text-sm text-ink-muted hover:underline">
           ← Back to Technicians
         </Link>
-        <div className={`${ui.card} p-6`}>
-          <p className="text-sm text-ink-muted">Loading technician profile...</p>
+        <div className={`${ui.card} flex items-center gap-3 p-6`}>
+          <span
+            className="h-4 w-4 animate-spin rounded-full border-2 border-border-strong border-t-accent"
+            aria-hidden="true"
+          />
+          <p className="text-sm text-ink-muted">Loading technician profile…</p>
         </div>
       </div>
     );
@@ -173,8 +189,11 @@ export default function TechnicianProfilePage({ params }: TechnicianProfilePageP
         <Link href="/dashboard/technicians" className="mb-5 inline-block text-sm text-ink-muted hover:underline">
           ← Back to Technicians
         </Link>
-        <div className="rounded-2xl border border-danger/40 bg-surface px-[18px] py-3.5 text-[13px] text-danger">
-          {error ?? "Technician not found."}
+        <div
+          role="alert"
+          className="rounded-2xl border border-danger/40 bg-surface px-[18px] py-3.5 text-[13px] text-danger"
+        >
+          ⚠ {error ?? "Technician not found."}
         </div>
       </div>
     );
@@ -195,6 +214,16 @@ export default function TechnicianProfilePage({ params }: TechnicianProfilePageP
 
   return (
     <div>
+      {toast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed right-6 top-6 z-[70] rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm font-medium text-danger shadow-2xl"
+        >
+          {toast.text}
+        </div>
+      )}
+
       <Link href="/dashboard/technicians" className="mb-5 inline-block text-sm text-ink-muted hover:underline">
         ← Back to Technicians
       </Link>
@@ -207,6 +236,15 @@ export default function TechnicianProfilePage({ params }: TechnicianProfilePageP
               {technician.employeeCode}
             </span>
             <span className={`${ui.badge}`}>{formatDutyStatus(technician.dutyStatus)}</span>
+            <span
+              className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
+                technician.isActive
+                  ? "bg-success/10 text-success"
+                  : "bg-danger/10 text-danger"
+              }`}
+            >
+              {technician.isActive ? "Active" : "Inactive"}
+            </span>
           </div>
         </div>
       </div>
@@ -254,7 +292,7 @@ export default function TechnicianProfilePage({ params }: TechnicianProfilePageP
             <button className={ui.btnPrimary} type="button" onClick={() => setEditingTechnician(editFormData)}>
               Edit Technician
             </button>
-            <button className={ui.btnGhost} type="button" onClick={handleDelete}>
+            <button className={ui.btnGhost} type="button" onClick={() => setConfirmingDelete(true)}>
               Delete Technician
             </button>
           </div>
@@ -282,6 +320,16 @@ export default function TechnicianProfilePage({ params }: TechnicianProfilePageP
                 setLoading(false);
               });
           }}
+        />
+      )}
+
+      {confirmingDelete && (
+        <DeleteConfirmationModal
+          title="Delete Technician"
+          message={`Are you sure you want to delete "${technician.name}"? This action cannot be undone.`}
+          isDeleting={isDeleting}
+          onCancel={() => setConfirmingDelete(false)}
+          onConfirm={handleConfirmDelete}
         />
       )}
     </div>

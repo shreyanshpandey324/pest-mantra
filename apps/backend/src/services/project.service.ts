@@ -1,10 +1,49 @@
-import mongoose, { FilterQuery } from "mongoose";
-import { Project, IProject, ProjectStatus } from "../models/Project";
-import { ProjectStatusHistory } from "../models/ProjectStatusHistory";
-import { TechnicianProfile, DutyStatus } from "../models/TechnicianProfile";
-import { User, UserRole } from "../models/User";
-import { ApiError } from "../utils/ApiError";
-import { CallerScope } from "../utils/callerScope";
+import mongoose, {
+  FilterQuery,
+} from "mongoose";
+import fs from "fs/promises";
+import path from "path";
+
+import {
+  Project,
+  IProject,
+  ProjectStatus,
+} from "../models/Project";
+
+import {
+  ProjectStatusHistory,
+} from "../models/ProjectStatusHistory";
+
+import {
+  ProjectChemicalUsage,
+} from "../models/ProjectChemicalUsage";
+
+import {
+  ProjectPhoto,
+} from "../models/ProjectPhoto";
+
+import {
+  TechnicianProfile,
+  DutyStatus,
+} from "../models/TechnicianProfile";
+
+import {
+  User,
+  UserRole,
+} from "../models/User";
+
+import {
+  ApiError,
+} from "../utils/ApiError";
+
+import {
+  CallerScope,
+} from "../utils/callerScope";
+
+import {
+  UPLOAD_DIR,
+} from "../middleware/upload.middleware";
+
 import {
   CreateProjectInput,
   AssignProjectInput,
@@ -13,276 +52,1148 @@ import {
   ALLOWED_STATUS_TRANSITIONS,
 } from "../validators/project.validators";
 
-/**
- * assertProjectVisible is the single check every project-scoped
- * read/write funnels through (list uses its own filter directly,
- * everything single-record — get, history, assign, status update,
- * photo upload/list — goes through getProjectById below, which
- * calls this). "A technician can only ever see their own jobs" is
- * enforced here, once, rather than trusted to be true because each
- * call site remembered to check it.
- */
-function assertProjectVisible(project: IProject, scope: CallerScope): void {
-  if (scope.role === UserRole.TECHNICIAN) {
-    if (!project.assignedTechnicianId || project.assignedTechnicianId.toString() !== scope.userId) {
-      // 404, not 403 — a technician probing other projects' ids
-      // should not be able to learn that a given id exists at all.
-      throw ApiError.notFound("Project not found");
+/*
+|--------------------------------------------------------------------------
+| Tenant / authorization helpers
+|--------------------------------------------------------------------------
+*/
+
+function companyFilter(
+  scope: CallerScope
+): FilterQuery<IProject> {
+  if (
+    scope.role ===
+    UserRole.SUPER_ADMIN
+  ) {
+    return {};
+  }
+
+  if (!scope.companyId) {
+    throw ApiError.forbidden(
+      "Your account is not linked to a company"
+    );
+  }
+
+  if (
+    !mongoose.Types.ObjectId.isValid(
+      scope.companyId
+    )
+  ) {
+    throw ApiError.forbidden(
+      "Your company id is invalid"
+    );
+  }
+
+  return {
+    companyId:
+      new mongoose.Types.ObjectId(
+        scope.companyId
+      ),
+  };
+}
+
+function assertProjectVisible(
+  project: IProject,
+  scope: CallerScope
+): void {
+  if (
+    scope.role !==
+      UserRole.SUPER_ADMIN &&
+    !scope.companyId
+  ) {
+    throw ApiError.forbidden(
+      "Your account is not linked to a company"
+    );
+  }
+
+  if (
+    scope.companyId &&
+    (
+      !project.companyId ||
+      project.companyId.toString() !==
+        scope.companyId
+    )
+  ) {
+    throw ApiError.notFound(
+      "Project not found"
+    );
+  }
+
+  if (
+    scope.role ===
+    UserRole.TECHNICIAN
+  ) {
+    if (
+      !project.assignedTechnicianId ||
+      project.assignedTechnicianId.toString() !==
+        scope.userId
+    ) {
+      throw ApiError.notFound(
+        "Project not found"
+      );
     }
   }
 }
 
+/*
+|--------------------------------------------------------------------------
+| Project code
+|--------------------------------------------------------------------------
+*/
+
 async function generateProjectCode(): Promise<string> {
-  const year = new Date().getFullYear();
-  const count = await Project.countDocuments({
-    createdAt: { $gte: new Date(`${year}-01-01`) },
-  });
-  return `PM-${year}-${(count + 1).toString().padStart(6, "0")}`;
+  const year =
+    new Date().getFullYear();
+
+  const count =
+    await Project.countDocuments({
+      createdAt: {
+        $gte: new Date(
+          `${year}-01-01`
+        ),
+      },
+    });
+
+  return `PM-${year}-${(
+    count + 1
+  )
+    .toString()
+    .padStart(6, "0")}`;
 }
+
+/*
+|--------------------------------------------------------------------------
+| Creator company
+|--------------------------------------------------------------------------
+*/
+
+async function getCreatorCompanyId(
+  createdBy: string
+): Promise<
+  mongoose.Types.ObjectId | undefined
+> {
+  if (
+    !mongoose.Types.ObjectId.isValid(
+      createdBy
+    )
+  ) {
+    throw ApiError.unauthorized(
+      "Invalid creating user identity"
+    );
+  }
+
+  const creator =
+    await User.findById(
+      createdBy
+    ).select(
+      "_id role companyId"
+    );
+
+  if (!creator) {
+    throw ApiError.unauthorized(
+      "Creating user no longer exists"
+    );
+  }
+
+  if (
+    creator.role !==
+      UserRole.SUPER_ADMIN &&
+    !creator.companyId
+  ) {
+    throw ApiError.forbidden(
+      "Your account is not linked to a company"
+    );
+  }
+
+  return creator.companyId;
+}
+
+/*
+|--------------------------------------------------------------------------
+| History
+|--------------------------------------------------------------------------
+*/
 
 async function recordHistory(
   projectId: mongoose.Types.ObjectId,
-  fromStatus: ProjectStatus | null,
+  fromStatus:
+    | ProjectStatus
+    | null,
   toStatus: ProjectStatus,
   changedBy: string,
-  remarks?: string
+  remarks?: string,
+  companyId?:
+    | mongoose.Types.ObjectId
+    | null
 ): Promise<void> {
   await ProjectStatusHistory.create({
+    companyId:
+      companyId ?? undefined,
+
     projectId,
+
     fromStatus,
+
     toStatus,
-    changedBy,
+
+    changedBy:
+      new mongoose.Types.ObjectId(
+        changedBy
+      ),
+
     remarks,
   });
 }
 
-function isDuplicateKeyError(err: unknown): boolean {
-  return typeof err === "object" && err !== null && "code" in err && (err as { code: unknown }).code === 11000;
+/*
+|--------------------------------------------------------------------------
+| Mongo duplicate-key detector
+|--------------------------------------------------------------------------
+*/
+
+function isDuplicateKeyError(
+  err: unknown
+): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "code" in err &&
+    (
+      err as {
+        code: unknown;
+      }
+    ).code === 11000
+  );
 }
 
-export const projectService = {
-  /**
-   * generateProjectCode() counts existing documents to pick the
-   * next number — two near-simultaneous creates could compute the
-   * same code. The schema's unique index turns that into a
-   * guaranteed, detectable failure (never a silent duplicate)
-   * rather than preventing it outright, so this retries generation
-   * a few times on exactly that failure instead of surfacing a
-   * confusing "already exists" error for a legitimate concurrent
-   * booking. At the office's stated volume (2-6 bookings/day) this
-   * will essentially never trigger in practice.
-   */
-  async createProject(input: CreateProjectInput, createdBy: string): Promise<IProject> {
-    const MAX_ATTEMPTS = 3;
+/*
+|--------------------------------------------------------------------------
+| Photo-file cleanup helpers
+|--------------------------------------------------------------------------
+*/
 
-    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-      const projectCode = await generateProjectCode();
+function safeUploadPath(
+  filePath: string
+): string {
+  const uploadRoot =
+    path.resolve(
+      UPLOAD_DIR
+    );
+
+  const resolved =
+    path.resolve(
+      filePath
+    );
+
+  const relative =
+    path.relative(
+      uploadRoot,
+      resolved
+    );
+
+  if (
+    relative.startsWith("..") ||
+    path.isAbsolute(relative)
+  ) {
+    throw ApiError.forbidden(
+      "Invalid stored photo path"
+    );
+  }
+
+  return resolved;
+}
+
+async function removePhotoFiles(
+  storagePaths: string[]
+): Promise<void> {
+  for (
+    const storagePath of storagePaths
+  ) {
+    try {
+      const safePath =
+        safeUploadPath(
+          storagePath
+        );
+
+      await fs.unlink(
+        safePath
+      );
+    } catch (err: unknown) {
+      /*
+       * A missing file is harmless.
+       * Database cleanup should not fail
+       * merely because the physical file
+       * was already removed.
+       */
+      if (
+        typeof err === "object" &&
+        err !== null &&
+        "code" in err &&
+        (err as {
+          code?: string;
+        }).code === "ENOENT"
+      ) {
+        continue;
+      }
+    }
+  }
+}
+
+/*
+|--------------------------------------------------------------------------
+| Related-data cleanup
+|--------------------------------------------------------------------------
+*/
+
+async function cleanupProjectData(
+  projectIds: mongoose.Types.ObjectId[],
+  companyId?: mongoose.Types.ObjectId
+): Promise<void> {
+  if (
+    projectIds.length === 0
+  ) {
+    return;
+  }
+
+  const projectFilter:
+    | FilterQuery<IProject>
+    | Record<string, unknown> = {
+    projectId: {
+      $in: projectIds,
+    },
+  };
+
+  if (companyId) {
+    projectFilter.companyId =
+      companyId;
+  }
+
+  /*
+   * Get physical photo paths before
+   * deleting photo records.
+   */
+  const photos =
+    await ProjectPhoto.find(
+      projectFilter
+    ).select(
+      "+storagePath"
+    );
+
+  const storagePaths =
+    photos
+      .map(
+        (photo) =>
+          photo.storagePath
+      )
+      .filter(
+        (
+          value
+        ): value is string =>
+          Boolean(value)
+      );
+
+  /*
+   * Delete related MongoDB records.
+   */
+  await Promise.all([
+    ProjectStatusHistory.deleteMany(
+      projectFilter
+    ),
+
+    ProjectChemicalUsage.deleteMany(
+      projectFilter
+    ),
+
+    ProjectPhoto.deleteMany(
+      projectFilter
+    ),
+  ]);
+
+  /*
+   * Delete physical files after the
+   * database records are removed.
+   */
+  await removePhotoFiles(
+    storagePaths
+  );
+}
+
+/*
+|--------------------------------------------------------------------------
+| Service
+|--------------------------------------------------------------------------
+*/
+
+export const projectService = {
+  /*
+  |--------------------------------------------------------------------------
+  | CREATE PROJECT
+  |--------------------------------------------------------------------------
+  */
+
+  async createProject(
+    input: CreateProjectInput,
+    createdBy: string
+  ): Promise<IProject> {
+    const MAX_ATTEMPTS = 5;
+
+    const companyId =
+      await getCreatorCompanyId(
+        createdBy
+      );
+
+    for (
+      let attempt = 1;
+      attempt <= MAX_ATTEMPTS;
+      attempt++
+    ) {
+      const projectCode =
+        await generateProjectCode();
+
       try {
-        const project = await Project.create({
-          ...input,
-          projectCode,
+        const project =
+          await Project.create({
+            ...input,
+
+            companyId,
+
+            projectCode,
+
+            createdBy:
+              new mongoose.Types.ObjectId(
+                createdBy
+              ),
+
+            status:
+              ProjectStatus.NEW,
+          });
+
+        await recordHistory(
+          project._id,
+          null,
+          ProjectStatus.NEW,
           createdBy,
-          status: ProjectStatus.NEW,
-        });
-        await recordHistory(project._id, null, ProjectStatus.NEW, createdBy, "Project created");
+          "Project created",
+          companyId
+        );
+
         return project;
       } catch (err) {
-        if (isDuplicateKeyError(err) && attempt < MAX_ATTEMPTS) {
-          continue; // another request took this exact code — regenerate and retry
+        if (
+          isDuplicateKeyError(err) &&
+          attempt < MAX_ATTEMPTS
+        ) {
+          continue;
         }
+
         throw err;
       }
     }
 
-    // Unreachable in practice (the loop always returns or throws),
-    // but keeps the function's return type honest without a
-    // non-null assertion.
-    throw ApiError.internal("Could not generate a unique project code — please try again");
+    throw ApiError.internal(
+      "Could not generate a unique project code. Please try again."
+    );
   },
 
-  /**
-   * The single query every list view goes through. An office admin
-   * sees everything; a technician's filter is hard-set to their own
-   * id regardless of anything the request might otherwise imply —
-   * there is no query parameter that can widen it.
-   */
-  async listProjects(scope: CallerScope, query: ListProjectsQuery): Promise<IProject[]> {
-    const filter: FilterQuery<IProject> = {};
+  /*
+  |--------------------------------------------------------------------------
+  | LIST PROJECTS
+  |--------------------------------------------------------------------------
+  */
 
-    if (scope.role === UserRole.TECHNICIAN) {
-      filter.assignedTechnicianId = new mongoose.Types.ObjectId(scope.userId);
+  async listProjects(
+    scope: CallerScope,
+    query: ListProjectsQuery
+  ): Promise<IProject[]> {
+    const filter:
+      FilterQuery<IProject> = {
+      ...companyFilter(scope),
+    };
+
+    if (
+      scope.role ===
+      UserRole.TECHNICIAN
+    ) {
+      if (
+        !mongoose.Types.ObjectId.isValid(
+          scope.userId
+        )
+      ) {
+        throw ApiError.unauthorized(
+          "Invalid user identity"
+        );
+      }
+
+      filter.assignedTechnicianId =
+        new mongoose.Types.ObjectId(
+          scope.userId
+        );
     }
 
     if (query.status) {
-      filter.status = query.status;
+      filter.status =
+        query.status;
     }
 
     if (query.date) {
-      const start = new Date(query.date);
-      const end = new Date(query.date);
-      end.setDate(end.getDate() + 1);
-      filter.scheduledDate = { $gte: start, $lt: end };
+      const start =
+        new Date(
+          query.date
+        );
+
+      if (
+        Number.isNaN(
+          start.getTime()
+        )
+      ) {
+        throw ApiError.badRequest(
+          "date is not a valid date"
+        );
+      }
+
+      start.setHours(
+        0,
+        0,
+        0,
+        0
+      );
+
+      const end =
+        new Date(start);
+
+      end.setDate(
+        end.getDate() + 1
+      );
+
+      filter.scheduledDate = {
+        $gte: start,
+        $lt: end,
+      };
     }
 
-    return Project.find(filter).sort({ scheduledDate: 1, createdAt: -1 });
+    return Project.find(
+      filter
+    ).sort({
+      scheduledDate: 1,
+      createdAt: -1,
+    });
   },
 
-  async getProjectById(projectId: string, scope: CallerScope): Promise<IProject> {
-    const project = await Project.findById(projectId);
-    if (!project) {
-      throw ApiError.notFound("Project not found");
+  /*
+  |--------------------------------------------------------------------------
+  | GET PROJECT
+  |--------------------------------------------------------------------------
+  */
+
+  async getProjectById(
+    projectId: string,
+    scope: CallerScope
+  ): Promise<IProject> {
+    if (
+      !mongoose.Types.ObjectId.isValid(
+        projectId
+      )
+    ) {
+      throw ApiError.notFound(
+        "Project not found"
+      );
     }
-    assertProjectVisible(project, scope);
+
+    const project =
+      await Project.findOne({
+        _id: projectId,
+
+        ...companyFilter(scope),
+      })
+        .populate(
+          "assignedTechnicianId",
+          "name phone email companyId"
+        )
+        .populate(
+          "assignedBy",
+          "name"
+        );
+
+    if (!project) {
+      throw ApiError.notFound(
+        "Project not found"
+      );
+    }
+
+    assertProjectVisible(
+      project,
+      scope
+    );
+
     return project;
   },
 
-  async getProjectHistory(projectId: string, scope: CallerScope) {
-    // Reuses getProjectById so the same visibility check applies —
-    // a technician can't read another technician's history by id
-    // just because this is a different endpoint.
-    await this.getProjectById(projectId, scope);
-    return ProjectStatusHistory.find({ projectId }).sort({ changedAt: 1 });
+  /*
+  |--------------------------------------------------------------------------
+  | PROJECT HISTORY
+  |--------------------------------------------------------------------------
+  */
+
+  async getProjectHistory(
+    projectId: string,
+    scope: CallerScope
+  ) {
+    await this.getProjectById(
+      projectId,
+      scope
+    );
+
+    const filter:
+      FilterQuery<
+        typeof ProjectStatusHistory
+      > = {
+      projectId:
+        new mongoose.Types.ObjectId(
+          projectId
+        ),
+    };
+
+    if (
+      scope.role !==
+      UserRole.SUPER_ADMIN
+    ) {
+      if (!scope.companyId) {
+        throw ApiError.forbidden(
+          "Your account is not linked to a company"
+        );
+      }
+
+      filter.companyId =
+        new mongoose.Types.ObjectId(
+          scope.companyId
+        );
+    }
+
+    return ProjectStatusHistory.find(
+      filter
+    )
+      .populate(
+        "changedBy",
+        "name phone role"
+      )
+      .sort({
+        changedAt: 1,
+      });
   },
+
+  /*
+  |--------------------------------------------------------------------------
+  | ASSIGN TECHNICIAN
+  |--------------------------------------------------------------------------
+  */
 
   async assignTechnician(
     projectId: string,
     input: AssignProjectInput,
     scope: CallerScope
   ): Promise<IProject> {
-    if (!mongoose.Types.ObjectId.isValid(input.technicianId)) {
-      throw ApiError.badRequest("technicianId is not a valid id");
+    if (
+      !mongoose.Types.ObjectId.isValid(
+        input.technicianId
+      )
+    ) {
+      throw ApiError.badRequest(
+        "technicianId is not a valid id"
+      );
     }
 
-    const project = await Project.findById(projectId);
+    if (
+      !mongoose.Types.ObjectId.isValid(
+        projectId
+      )
+    ) {
+      throw ApiError.notFound(
+        "Project not found"
+      );
+    }
+
+    if (
+      scope.role !==
+        UserRole.SUPER_ADMIN &&
+      scope.role !==
+        UserRole.OFFICE_ADMIN
+    ) {
+      throw ApiError.forbidden(
+        "Only admins can assign technicians"
+      );
+    }
+
+    const project =
+      await Project.findOne({
+        _id: projectId,
+
+        ...companyFilter(scope),
+      });
+
     if (!project) {
-      throw ApiError.notFound("Project not found");
+      throw ApiError.notFound(
+        "Project not found"
+      );
     }
 
-    if (project.status !== ProjectStatus.NEW) {
+    if (
+      project.status !==
+      ProjectStatus.NEW
+    ) {
       throw ApiError.badRequest(
         `Cannot assign a technician to a project in "${project.status}" status. Only new projects can be assigned.`
       );
     }
 
-    const technician = await User.findOne({ _id: input.technicianId, role: UserRole.TECHNICIAN });
-    if (!technician || !technician.isActive) {
-      throw ApiError.badRequest("Technician not found or inactive");
+    const technicianFilter:
+      FilterQuery<typeof User> = {
+      _id:
+        new mongoose.Types.ObjectId(
+          input.technicianId
+        ),
+
+      role:
+        UserRole.TECHNICIAN,
+
+      isActive: true,
+    };
+
+    if (
+      scope.role !==
+      UserRole.SUPER_ADMIN
+    ) {
+      if (!scope.companyId) {
+        throw ApiError.forbidden(
+          "Your account is not linked to a company"
+        );
+      }
+
+      technicianFilter.companyId =
+        new mongoose.Types.ObjectId(
+          scope.companyId
+        );
     }
 
-    const techProfile = await TechnicianProfile.findOne({ userId: input.technicianId });
-    if (!techProfile) {
-      throw ApiError.badRequest("Technician profile not found");
-    }
-    if (techProfile.currentDutyStatus === DutyStatus.OFF_DUTY) {
-      throw ApiError.badRequest("This technician is off duty and cannot be assigned a job");
+    const technician =
+      await User.findOne(
+        technicianFilter
+      );
+
+    if (!technician) {
+      throw ApiError.badRequest(
+        "Technician not found, inactive, or outside your company"
+      );
     }
 
-    const scheduledDate = new Date(input.scheduledDate);
-    if (Number.isNaN(scheduledDate.getTime())) {
-      throw ApiError.badRequest("scheduledDate is not a valid date");
+    if (
+      project.companyId &&
+      (
+        !technician.companyId ||
+        project.companyId.toString() !==
+          technician.companyId.toString()
+      )
+    ) {
+      throw ApiError.badRequest(
+        "Technician does not belong to the project's company"
+      );
     }
 
-    // Duplicate/invalid-assignment guard: the same technician
-    // cannot be double-booked into the same date + time slot on
-    // another still-active job. Uses the compound index defined on
-    // the Project model, so this stays cheap even as job volume
-    // grows well past the office's current 2-6 bookings/day.
-    const conflict = await Project.findOne({
-      assignedTechnicianId: technician._id,
+    if (
+      project.companyId &&
+      !technician.companyId
+    ) {
+      throw ApiError.badRequest(
+        "Technician is not linked to a company"
+      );
+    }
+
+    const profileFilter:
+      FilterQuery<
+        typeof TechnicianProfile
+      > = {
+      userId:
+        technician._id,
+    };
+
+    if (
+      technician.companyId
+    ) {
+      profileFilter.companyId =
+        technician.companyId;
+    }
+
+    const technicianProfile =
+      await TechnicianProfile.findOne(
+        profileFilter
+      );
+
+    if (!technicianProfile) {
+      throw ApiError.badRequest(
+        "Technician profile not found"
+      );
+    }
+
+    if (
+      technicianProfile.currentDutyStatus ===
+      DutyStatus.OFF_DUTY
+    ) {
+      throw ApiError.badRequest(
+        "This technician is off duty and cannot be assigned a job"
+      );
+    }
+
+    const scheduledDate =
+      new Date(
+        input.scheduledDate
+      );
+
+    if (
+      Number.isNaN(
+        scheduledDate.getTime()
+      )
+    ) {
+      throw ApiError.badRequest(
+        "scheduledDate is not a valid date"
+      );
+    }
+
+    const conflictFilter:
+      FilterQuery<IProject> = {
+      assignedTechnicianId:
+        technician._id,
+
       scheduledDate,
-      scheduledTimeSlot: input.scheduledTimeSlot,
-      status: { $in: [ProjectStatus.ASSIGNED, ProjectStatus.EN_ROUTE, ProjectStatus.IN_PROGRESS] },
-    });
+
+      scheduledTimeSlot:
+        input.scheduledTimeSlot,
+
+      status: {
+        $in: [
+          ProjectStatus.ASSIGNED,
+          ProjectStatus.EN_ROUTE,
+          ProjectStatus.IN_PROGRESS,
+        ],
+      },
+    };
+
+    if (
+      project.companyId
+    ) {
+      conflictFilter.companyId =
+        project.companyId;
+    }
+
+    const conflict =
+      await Project.findOne(
+        conflictFilter
+      );
+
     if (conflict) {
       throw ApiError.conflict(
         `${technician.name} is already assigned to another job (${conflict.projectCode}) at this date and time slot`
       );
     }
 
-    const previousStatus = project.status;
+    const updated =
+      await Project.findOneAndUpdate(
+        {
+          _id: project._id,
 
-    // Atomic conditional update: the status:NEW guard is repeated
-    // here (not just checked earlier) specifically to close the
-    // race window between the read above and this write — if
-    // another request assigned/cancelled this project in between,
-    // this update matches zero documents and we correctly report a
-    // conflict instead of silently overwriting a concurrent change.
-    const updated = await Project.findOneAndUpdate(
-      { _id: project._id, status: ProjectStatus.NEW },
-      {
-        $set: {
-          assignedTechnicianId: technician._id,
-          assignedBy: new mongoose.Types.ObjectId(scope.userId),
-          assignedAt: new Date(),
-          scheduledDate,
-          scheduledTimeSlot: input.scheduledTimeSlot,
-          status: ProjectStatus.ASSIGNED,
+          status:
+            ProjectStatus.NEW,
+
+          ...companyFilter(scope),
         },
-      },
-      { new: true }
-    );
+        {
+          $set: {
+            assignedTechnicianId:
+              technician._id,
+
+            assignedBy:
+              new mongoose.Types.ObjectId(
+                scope.userId
+              ),
+
+            assignedAt:
+              new Date(),
+
+            scheduledDate,
+
+            scheduledTimeSlot:
+              input.scheduledTimeSlot,
+
+            status:
+              ProjectStatus.ASSIGNED,
+          },
+        },
+        {
+          new: true,
+        }
+      );
 
     if (!updated) {
       throw ApiError.conflict(
-        "This project was modified by someone else at the same moment — please refresh and try again"
+        "This project was modified by someone else at the same moment. Please refresh and try again."
+      );
+    }
+
+    await recordHistory(
+      updated._id,
+      ProjectStatus.NEW,
+      ProjectStatus.ASSIGNED,
+      scope.userId,
+      `Assigned to technician ${technician.name}`,
+      updated.companyId
+    );
+
+    return updated;
+  },
+
+  /*
+  |--------------------------------------------------------------------------
+  | UPDATE STATUS
+  |--------------------------------------------------------------------------
+  */
+
+  async updateStatus(
+    projectId: string,
+    input: UpdateStatusInput,
+    scope: CallerScope
+  ): Promise<IProject> {
+    const project =
+      await this.getProjectById(
+        projectId,
+        scope
+      );
+
+    const allowedNext =
+      ALLOWED_STATUS_TRANSITIONS[
+        project.status
+      ];
+
+    if (
+      !allowedNext ||
+      !allowedNext.includes(
+        input.status
+      )
+    ) {
+      throw ApiError.badRequest(
+        `Cannot move a project from "${project.status}" to "${input.status}"`
+      );
+    }
+
+    const previousStatus =
+      project.status;
+
+    const setFields: Record<
+      string,
+      unknown
+    > = {
+      status:
+        input.status,
+    };
+
+    if (
+      input.paymentMethod
+    ) {
+      setFields.paymentMethod =
+        input.paymentMethod;
+    }
+
+    if (
+      input.status ===
+      ProjectStatus.COMPLETED
+    ) {
+      setFields.completedAt =
+        new Date();
+    }
+
+    if (
+      input.status ===
+      ProjectStatus.CANCELLED
+    ) {
+      setFields.completedAt =
+        undefined;
+    }
+
+    const updated =
+      await Project.findOneAndUpdate(
+        {
+          _id:
+            project._id,
+
+          status:
+            previousStatus,
+
+          ...companyFilter(scope),
+        },
+        {
+          $set:
+            setFields,
+        },
+        {
+          new: true,
+        }
+      );
+
+    if (!updated) {
+      throw ApiError.conflict(
+        "This project was modified by someone else at the same moment. Please refresh and try again."
       );
     }
 
     await recordHistory(
       updated._id,
       previousStatus,
-      ProjectStatus.ASSIGNED,
+      input.status,
       scope.userId,
-      `Assigned to technician ${technician.name}`
+      input.remarks,
+      updated.companyId
     );
 
     return updated;
   },
 
-  /**
-   * Status updates are allowed for admins (any project) and for
-   * technicians (their own assigned project only — enforced by
-   * getProjectById above, not re-implemented here). Every
-   * transition is checked against ALLOWED_STATUS_TRANSITIONS so a
-   * job can't jump e.g. straight from "new" to "completed".
-   */
-  async updateStatus(
-    projectId: string,
-    input: UpdateStatusInput,
-    scope: CallerScope
-  ): Promise<IProject> {
-    const project = await this.getProjectById(projectId, scope);
+  /*
+  |--------------------------------------------------------------------------
+  | DELETE PROJECT
+  |--------------------------------------------------------------------------
+  */
 
-    const allowedNext = ALLOWED_STATUS_TRANSITIONS[project.status];
-    if (!allowedNext.includes(input.status)) {
-      throw ApiError.badRequest(
-        `Cannot move a project from "${project.status}" to "${input.status}"`
+  async deleteProject(
+    projectId: string,
+    scope: CallerScope
+  ): Promise<void> {
+    if (
+      !mongoose.Types.ObjectId.isValid(
+        projectId
+      )
+    ) {
+      throw ApiError.notFound(
+        "Project not found"
       );
     }
 
-    const previousStatus = project.status;
+    if (
+      scope.role !==
+        UserRole.SUPER_ADMIN &&
+      scope.role !==
+        UserRole.OFFICE_ADMIN
+    ) {
+      throw ApiError.forbidden(
+        "Only admins can delete projects"
+      );
+    }
 
-    const setFields: Record<string, unknown> = { status: input.status };
-    if (input.paymentMethod) setFields.paymentMethod = input.paymentMethod;
-    if (input.status === ProjectStatus.COMPLETED) setFields.completedAt = new Date();
+    const project =
+      await Project.findOne({
+        _id: projectId,
 
-    // Same atomic-with-guard pattern as assignTechnician — the
-    // previousStatus condition must still hold at write time, or
-    // someone else changed this project between our read and now.
-    const updated = await Project.findOneAndUpdate(
-      { _id: project._id, status: previousStatus },
-      { $set: setFields },
-      { new: true }
+        ...companyFilter(scope),
+      });
+
+    if (!project) {
+      throw ApiError.notFound(
+        "Project not found"
+      );
+    }
+
+    const deleted =
+      await Project.deleteOne({
+        _id:
+          project._id,
+
+        ...companyFilter(scope),
+      });
+
+    if (
+      deleted.deletedCount === 0
+    ) {
+      throw ApiError.conflict(
+        "Project could not be deleted. Please refresh and try again."
+      );
+    }
+
+    await cleanupProjectData(
+      [project._id],
+      project.companyId
+    );
+  },
+
+  /*
+  |--------------------------------------------------------------------------
+  | DELETE ALL PROJECTS
+  |--------------------------------------------------------------------------
+  |
+  | Testing/admin maintenance operation.
+  | Always requires company context.
+  |
+  */
+
+  async deleteAllProjects(
+    scope: CallerScope
+  ): Promise<number> {
+    if (
+      scope.role !==
+        UserRole.SUPER_ADMIN &&
+      scope.role !==
+        UserRole.OFFICE_ADMIN
+    ) {
+      throw ApiError.forbidden(
+        "Only admins can delete projects"
+      );
+    }
+
+    if (!scope.companyId) {
+      throw ApiError.badRequest(
+        "Company context is required for this operation"
+      );
+    }
+
+    if (
+      !mongoose.Types.ObjectId.isValid(
+        scope.companyId
+      )
+    ) {
+      throw ApiError.badRequest(
+        "Invalid company id"
+      );
+    }
+
+    const companyId =
+      new mongoose.Types.ObjectId(
+        scope.companyId
+      );
+
+    const projects =
+      await Project.find({
+        companyId,
+      }).select(
+        "_id"
+      );
+
+    const projectIds =
+      projects.map(
+        (project) =>
+          project._id
+      );
+
+    if (
+      projectIds.length === 0
+    ) {
+      return 0;
+    }
+
+    const deleted =
+      await Project.deleteMany({
+        companyId,
+      });
+
+    await cleanupProjectData(
+      projectIds,
+      companyId
     );
 
-    if (!updated) {
-      throw ApiError.conflict(
-        "This project was modified by someone else at the same moment — please refresh and try again"
-      );
-    }
-
-    await recordHistory(updated._id, previousStatus, input.status, scope.userId, input.remarks);
-
-    return updated;
+    return deleted.deletedCount;
   },
 };

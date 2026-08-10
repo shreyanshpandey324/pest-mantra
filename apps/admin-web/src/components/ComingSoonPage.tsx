@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { ui } from "@/lib/ui-classes";
 
 interface ComingSoonProps {
@@ -13,18 +14,40 @@ interface ComingSoonProps {
  */
 export function ComingSoonPage({ title, description }: ComingSoonProps) {
   return (
-    <div>
-      <h1 className="mb-5 text-[22px]">{title}</h1>
-      <div className={`${ui.card} flex flex-col items-center gap-3 px-8 py-16 text-center`}>
+    <div className="flex flex-col gap-5">
+      <header className="flex items-center justify-between">
+        <h1 className="text-[22px] font-semibold">{title}</h1>
+        <Link
+          href="/dashboard"
+          className="text-sm font-medium text-ink-muted hover:text-accent hover:underline"
+        >
+          ← Back to Dashboard
+        </Link>
+      </header>
+
+      <div
+        role="status"
+        className={`${ui.card} flex flex-col items-center gap-4 px-8 py-20 text-center`}
+      >
         <span
-          className="flex h-12 w-12 items-center justify-center rounded-full border border-border-strong text-xl text-ink-faint"
+          className="flex h-14 w-14 items-center justify-center rounded-full border border-border-strong bg-surface-2 text-2xl text-ink-faint"
           aria-hidden="true"
         >
           ⏳
         </span>
-        <p className="text-base font-semibold">Coming Soon — API Pending</p>
-        <p className="max-w-md text-sm text-ink-muted">{description}</p>
-        <span className={`${ui.badge} mt-2`}>NO BACKEND ENDPOINT YET</span>
+
+        <div className="flex flex-col gap-1.5">
+          <p className="text-base font-semibold">Coming Soon</p>
+          <p className="max-w-md text-sm leading-relaxed text-ink-muted">
+            {description}
+          </p>
+        </div>
+
+        <span className={`${ui.badge} mt-1`}>NO BACKEND ENDPOINT YET</span>
+
+        <Link href="/dashboard" className={`${ui.btnGhost} mt-3`}>
+          Go to Dashboard
+        </Link>
       </div>
     </div>
   );

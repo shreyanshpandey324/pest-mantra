@@ -28,9 +28,13 @@
   --color-danger: #ff5c5c;
   --color-warning: #ffc94d;
 
-  --font-sans: "Inter", "Segoe UI", system-ui, sans-serif;
-  --font-display: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+  /* Populated by the next/font/google loaders in app/layout.tsx via
+     the matching *-loaded CSS variable applied on <html>; the
+     literal family names remain as the fallback chain for the rare
+     case that variable isn't set (e.g. an isolated CSS render). */
+  --font-sans: var(--font-sans-loaded), "Inter", "Segoe UI", system-ui, sans-serif;
+  --font-display: var(--font-display-loaded), "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+  --font-mono: var(--font-mono-loaded), "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
 }
 
 html,

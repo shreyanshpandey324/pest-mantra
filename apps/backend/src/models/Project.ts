@@ -1,5 +1,13 @@
-import { Schema, model, Document, Types } from "mongoose";
-import { PHONE_REGEX } from "../utils/constants";
+import {
+  Schema,
+  model,
+  Document,
+  Types,
+} from "mongoose";
+
+import {
+  PHONE_REGEX,
+} from "../utils/constants";
 
 export enum ProjectStatus {
   NEW = "new",
@@ -10,7 +18,9 @@ export enum ProjectStatus {
   CANCELLED = "cancelled",
 }
 
-/** Matches the services Pest Mantra actually offers (confirmed during requirements gathering). */
+/**
+ * Pest Mantra service categories.
+ */
 export enum ServiceType {
   COCKROACH = "cockroach",
   ANTS = "ants",
@@ -24,74 +34,263 @@ export enum PaymentMethod {
   CASH = "cash",
   UPI = "upi",
   CHEQUE = "cheque",
-  ADVANCE = "advance", // termite cases take advance payment per office workflow
+  ADVANCE = "advance",
 }
 
-export interface IProject extends Document {
+export interface IProject
+  extends Document {
   _id: Types.ObjectId;
+
+  companyId?: Types.ObjectId;
+
   projectCode: string;
+
   customerName: string;
+
   customerPhone: string;
+
   address: string;
+
   serviceType: ServiceType;
+
   status: ProjectStatus;
+
   assignedTechnicianId?: Types.ObjectId;
+
   assignedBy?: Types.ObjectId;
+
   assignedAt?: Date;
+
   scheduledDate?: Date;
+
   scheduledTimeSlot?: string;
+
   createdBy: Types.ObjectId;
+
   paymentMethod?: PaymentMethod;
+
   notes?: string;
+
   completedAt?: Date;
+
   createdAt: Date;
+
   updatedAt: Date;
 }
 
-const projectSchema = new Schema<IProject>(
-  {
-    projectCode: { type: String, required: true, unique: true },
-    customerName: { type: String, required: true, trim: true, minlength: 2, maxlength: 100 },
-    customerPhone: {
-      type: String,
-      required: true,
-      trim: true,
-      validate: {
-        validator: (v: string) => PHONE_REGEX.test(v),
-        message: "Phone must be a valid 10-digit Indian mobile number",
+const projectSchema =
+  new Schema(
+    {
+      companyId: {
+        type: Schema.Types.ObjectId,
+        ref: "Company",
+        index: true,
+      },
+
+      projectCode: {
+        type: String,
+        required: true,
+        unique: true,
+        trim: true,
+        index: true,
+      },
+
+      customerName: {
+        type: String,
+        required: [
+          true,
+          "Customer name is required",
+        ],
+        trim: true,
+        minlength: 2,
+        maxlength: 100,
+      },
+
+      customerPhone: {
+        type: String,
+        required: [
+          true,
+          "Customer phone is required",
+        ],
+        trim: true,
+        validate: {
+          validator: (
+            value: string
+          ) =>
+            PHONE_REGEX.test(value),
+
+          message:
+            "Phone must be a valid 10-digit Indian mobile number",
+        },
+      },
+
+      address: {
+        type: String,
+        required: [
+          true,
+          "Address is required",
+        ],
+        trim: true,
+        maxlength: 500,
+      },
+
+      serviceType: {
+        type: String,
+        enum: Object.values(
+          ServiceType
+        ),
+        required: true,
+      },
+
+      status: {
+        type: String,
+        enum: Object.values(
+          ProjectStatus
+        ),
+        default:
+          ProjectStatus.NEW,
+        index: true,
+      },
+
+      assignedTechnicianId: {
+        type: Schema.Types.ObjectId,
+        ref: "User",
+        index: true,
+      },
+
+      assignedBy: {
+        type: Schema.Types.ObjectId,
+        ref: "User",
+      },
+
+      assignedAt: {
+        type: Date,
+      },
+
+      scheduledDate: {
+        type: Date,
+        index: true,
+      },
+
+      scheduledTimeSlot: {
+        type: String,
+        trim: true,
+        maxlength: 100,
+      },
+
+      createdBy: {
+        type: Schema.Types.ObjectId,
+        ref: "User",
+        required: true,
+        index: true,
+      },
+
+      paymentMethod: {
+        type: String,
+        enum: Object.values(
+          PaymentMethod
+        ),
+      },
+
+      notes: {
+        type: String,
+        trim: true,
+        maxlength: 1000,
+      },
+
+      completedAt: {
+        type: Date,
+        index: true,
       },
     },
-    address: { type: String, required: true, trim: true, maxlength: 500 },
-    serviceType: { type: String, enum: Object.values(ServiceType), required: true },
-    status: {
-      type: String,
-      enum: Object.values(ProjectStatus),
-      default: ProjectStatus.NEW,
-    },
-    assignedTechnicianId: { type: Schema.Types.ObjectId, ref: "User" },
-    // Denormalized on the project itself (in addition to the
-    // ProjectStatusHistory entry recorded for the same event) so
-    // "who assigned this and when" is a single-document read, not
-    // a join into the history collection for a very common query.
-    assignedBy: { type: Schema.Types.ObjectId, ref: "User" },
-    assignedAt: { type: Date },
-    scheduledDate: { type: Date },
-    scheduledTimeSlot: { type: String, trim: true },
-    createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
-    paymentMethod: { type: String, enum: Object.values(PaymentMethod) },
-    notes: { type: String, trim: true, maxlength: 1000 },
-    completedAt: { type: Date },
-  },
-  { timestamps: true }
-);
+    {
+      timestamps: true,
+    }
+  );
 
-// The three access patterns that matter most: the admin live board
-// (filter by status, sort by schedule), a technician's own job list
-// (filter by their id + status), and the double-booking check run
-// on every assignment (same technician + same date + same slot) —
-// this is the query project.service.ts's assignTechnician() runs.
-projectSchema.index({ status: 1, scheduledDate: 1 });
-projectSchema.index({ assignedTechnicianId: 1, status: 1 });
-projectSchema.index({ assignedTechnicianId: 1, scheduledDate: 1, scheduledTimeSlot: 1 });
+/*
+|--------------------------------------------------------------------------
+| Main admin-board query
+|--------------------------------------------------------------------------
+|
+| Company + status + scheduled date
+|
+*/
+projectSchema.index({
+  companyId: 1,
+  status: 1,
+  scheduledDate: 1,
+});
 
-export const Project = model<IProject>("Project", projectSchema);
+/*
+|--------------------------------------------------------------------------
+| Technician job list
+|--------------------------------------------------------------------------
+|
+| Company + technician + status
+|
+*/
+projectSchema.index({
+  companyId: 1,
+  assignedTechnicianId: 1,
+  status: 1,
+});
+
+/*
+|--------------------------------------------------------------------------
+| Technician scheduling / double booking
+|--------------------------------------------------------------------------
+|
+| Same technician + same date + same time slot
+|
+*/
+projectSchema.index({
+  companyId: 1,
+  assignedTechnicianId: 1,
+  scheduledDate: 1,
+  scheduledTimeSlot: 1,
+});
+
+/*
+|--------------------------------------------------------------------------
+| Project history / creator reporting
+|--------------------------------------------------------------------------
+*/
+projectSchema.index({
+  companyId: 1,
+  createdBy: 1,
+  createdAt: -1,
+});
+
+/*
+|--------------------------------------------------------------------------
+| Active technician scheduling
+|--------------------------------------------------------------------------
+*/
+projectSchema.index({
+  companyId: 1,
+  assignedTechnicianId: 1,
+  scheduledDate: 1,
+  status: 1,
+});
+
+/*
+|--------------------------------------------------------------------------
+| Completed project reporting
+|--------------------------------------------------------------------------
+*/
+projectSchema.index({
+  companyId: 1,
+  completedAt: -1,
+});
+
+/*
+|--------------------------------------------------------------------------
+| Export
+|--------------------------------------------------------------------------
+*/
+export const Project =
+  model<IProject>(
+    "Project",
+    projectSchema
+  );

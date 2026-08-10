@@ -18,4 +18,3 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   response.cookies.delete(ACCESS_COOKIE_NAME);
   response.cookies.delete(REFRESH_COOKIE_NAME);
   return response;
-}

@@ -1,45 +1,153 @@
 import { Response } from "express";
-import { asyncHandler } from "../utils/asyncHandler";
-import { sendSuccess } from "../utils/ApiResponse";
-import { LocationService } from "../services/location.service";
-import { AuthenticatedRequest } from "../middleware/auth.middleware";
-import { getCallerScope } from "../utils/callerScope";
+
+import {
+  asyncHandler,
+} from "../utils/asyncHandler";
+
+import {
+  sendSuccess,
+} from "../utils/ApiResponse";
+
+import {
+  LocationService,
+} from "../services/location.service";
+
+import {
+  AuthenticatedRequest,
+} from "../middleware/auth.middleware";
+
+import {
+  getCallerScope,
+} from "../utils/callerScope";
+
+import {
+  UpdateLocationInput,
+} from "../validators/location.validators";
 
 export const locationController = {
-  update: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const scope = getCallerScope(req);
+  /*
+  |--------------------------------------------------------------------------
+  | UPDATE OWN LOCATION
+  |--------------------------------------------------------------------------
+  */
 
-    const location = await LocationService.updateLocation({
-      technicianId: scope.userId,
-      latitude: req.body.latitude,
-      longitude: req.body.longitude,
-      accuracy: req.body.accuracy,
-      speed: req.body.speed,
-      heading: req.body.heading,
-      batteryLevel: req.body.batteryLevel,
-      isCharging: req.body.isCharging,
-    });
+  update: asyncHandler(
+    async (
+      req: AuthenticatedRequest,
+      res: Response
+    ) => {
+      const scope =
+        getCallerScope(req);
 
-    sendSuccess(res, 200, "Location updated", {
-      location,
-    });
-  }),
+      /*
+       * Validation has already happened
+       * in the route middleware.
+       *
+       * Technician ID is NEVER accepted
+       * from the request body.
+       */
+      const input =
+        req.body as UpdateLocationInput;
 
-  live: asyncHandler(async (_req: AuthenticatedRequest, res: Response) => {
-    const locations = await LocationService.getLiveLocations();
+      const location =
+        await LocationService.updateLocation(
+          {
+            technicianId:
+              scope.userId,
 
-    sendSuccess(res, 200, "Live locations", {
-      locations,
-    });
-  }),
+            latitude:
+              input.latitude,
 
-  mine: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const scope = getCallerScope(req);
+            longitude:
+              input.longitude,
 
-    const location = await LocationService.getLatestLocation(scope.userId);
+            accuracy:
+              input.accuracy,
 
-    sendSuccess(res, 200, "Latest location", {
-      location,
-    });
-  }),
+            speed:
+              input.speed,
+
+            heading:
+              input.heading,
+
+            batteryLevel:
+              input.batteryLevel,
+
+            isCharging:
+              input.isCharging,
+          },
+          scope
+        );
+
+      sendSuccess(
+        res,
+        200,
+        "Location updated",
+        {
+          location,
+        }
+      );
+    }
+  ),
+
+  /*
+  |--------------------------------------------------------------------------
+  | OWN LATEST LOCATION
+  |--------------------------------------------------------------------------
+  */
+
+  mine: asyncHandler(
+    async (
+      req: AuthenticatedRequest,
+      res: Response
+    ) => {
+      const scope =
+        getCallerScope(req);
+
+      const location =
+        await LocationService.getLatestLocation(
+          scope.userId,
+          scope
+        );
+
+      sendSuccess(
+        res,
+        200,
+        "Latest location",
+        {
+          location,
+        }
+      );
+    }
+  ),
+
+  /*
+  |--------------------------------------------------------------------------
+  | LIVE COMPANY LOCATIONS
+  |--------------------------------------------------------------------------
+  */
+
+  live: asyncHandler(
+    async (
+      req: AuthenticatedRequest,
+      res: Response
+    ) => {
+      const scope =
+        getCallerScope(req);
+
+      const locations =
+        await LocationService.getLiveLocations(
+          scope
+        );
+
+      sendSuccess(
+        res,
+        200,
+        "Live locations",
+        {
+          locations,
+        }
+      );
+    }
+  ),
 };

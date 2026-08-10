@@ -1,6 +1,13 @@
-import { Schema, model, Types, Document } from "mongoose";
+import {
+  Schema,
+  model,
+  Types,
+  Document,
+} from "mongoose";
 
 export interface ILocation extends Document {
+  _id: Types.ObjectId;
+  companyId?: Types.ObjectId;
   technicianId: Types.ObjectId;
   latitude: number;
   longitude: number;
@@ -16,6 +23,12 @@ export interface ILocation extends Document {
 
 const LocationSchema = new Schema<ILocation>(
   {
+    companyId: {
+      type: Schema.Types.ObjectId,
+      ref: "Company",
+      index: true,
+    },
+
     technicianId: {
       type: Schema.Types.ObjectId,
       ref: "User",
@@ -74,6 +87,7 @@ const LocationSchema = new Schema<ILocation>(
 );
 
 LocationSchema.index({
+  companyId: 1,
   technicianId: 1,
   recordedAt: -1,
 });

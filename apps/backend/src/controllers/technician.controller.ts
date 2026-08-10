@@ -6,58 +6,158 @@ import { getCallerScope } from "../utils/callerScope";
 import { AuthenticatedRequest } from "../middleware/auth.middleware";
 
 export const technicianController = {
-  list: asyncHandler(async (_req: AuthenticatedRequest, res: Response) => {
-    const technicians = await technicianService.listTechnicians();
+  list: asyncHandler(
+    async (
+      req: AuthenticatedRequest,
+      res: Response
+    ) => {
+      const scope =
+        getCallerScope(req);
 
-    sendSuccess(res, 200, "Technicians", {
-      technicians: technicians.map(({ user, profile }) => ({
-        id: user._id,
-        name: user.name,
-        phone: user.phone,
-        email: user.email,
-        isActive: user.isActive,
+      const technicians =
+        await technicianService.listTechnicians(
+          scope
+        );
 
-        employeeCode: profile.employeeCode,
-        vehicleNumber: profile.vehicleNumber,
-        skills: profile.skills,
+      sendSuccess(
+        res,
+        200,
+        "Technicians",
+        {
+          technicians:
+            technicians.map(
+              ({
+                user,
+                profile,
+              }) => ({
+                id: user._id,
+                name: user.name,
+                phone: user.phone,
+                email: user.email,
+                isActive:
+                  user.isActive,
 
-        dutyStatus: profile.currentDutyStatus,
-      })),
-    });
-  }),
+                companyId:
+                  user.companyId,
 
-  getById: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const technician = await technicianService.getById(req.params.id);
+                branchId:
+                  user.branchId,
 
-    sendSuccess(res, 200, "Technician profile loaded successfully", {
-      technician,
-    });
-  }),
+                employeeCode:
+                  profile.employeeCode,
 
-  startDuty: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const scope = getCallerScope(req);
-    const profile = await technicianService.startDuty(scope.userId);
+                vehicleNumber:
+                  profile.vehicleNumber,
 
-    sendSuccess(res, 200, "Duty started", {
-      profile,
-    });
-  }),
+                skills:
+                  profile.skills,
 
-  endDuty: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const scope = getCallerScope(req);
-    const profile = await technicianService.endDuty(scope.userId);
+                dutyStatus:
+                  profile.currentDutyStatus,
+              })
+            ),
+        }
+      );
+    }
+  ),
 
-    sendSuccess(res, 200, "Duty ended", {
-      profile,
-    });
-  }),
+  getById: asyncHandler(
+    async (
+      req: AuthenticatedRequest,
+      res: Response
+    ) => {
+      const scope =
+        getCallerScope(req);
 
-  getMyStatus: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const scope = getCallerScope(req);
-    const profile = await technicianService.getOwnProfile(scope.userId);
+      const technician =
+        await technicianService.getById(
+          req.params.id,
+          scope
+        );
 
-    sendSuccess(res, 200, "Duty status", {
-      profile,
-    });
-  }),
+      sendSuccess(
+        res,
+        200,
+        "Technician profile loaded successfully",
+        {
+          technician,
+        }
+      );
+    }
+  ),
+
+  startDuty: asyncHandler(
+    async (
+      req: AuthenticatedRequest,
+      res: Response
+    ) => {
+      const scope =
+        getCallerScope(req);
+
+      const profile =
+        await technicianService.startDuty(
+          scope.userId,
+          scope
+        );
+
+      sendSuccess(
+        res,
+        200,
+        "Duty started",
+        {
+          profile,
+        }
+      );
+    }
+  ),
+
+  endDuty: asyncHandler(
+    async (
+      req: AuthenticatedRequest,
+      res: Response
+    ) => {
+      const scope =
+        getCallerScope(req);
+
+      const profile =
+        await technicianService.endDuty(
+          scope.userId,
+          scope
+        );
+
+      sendSuccess(
+        res,
+        200,
+        "Duty ended",
+        {
+          profile,
+        }
+      );
+    }
+  ),
+
+  getMyStatus: asyncHandler(
+    async (
+      req: AuthenticatedRequest,
+      res: Response
+    ) => {
+      const scope =
+        getCallerScope(req);
+
+      const profile =
+        await technicianService.getOwnProfile(
+          scope.userId,
+          scope
+        );
+
+      sendSuccess(
+        res,
+        200,
+        "Duty status",
+        {
+          profile,
+        }
+      );
+    }
+  ),
 };

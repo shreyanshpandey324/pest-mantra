@@ -1,16 +1,45 @@
 import { Router } from "express";
-import { userController } from "../controllers/user.controller";
-import { validateBody } from "../middleware/validate.middleware";
+
+import {
+  userController,
+} from "../controllers/user.controller";
+
+import {
+  validateBody,
+} from "../middleware/validate.middleware";
+
 import {
   createUserSchema,
   updateUserSchema,
 } from "../validators/auth.validators";
-import { authenticate, requireRole } from "../middleware/auth.middleware";
-import { UserRole } from "../models/User";
+
+import {
+  authenticate,
+  requireRole,
+} from "../middleware/auth.middleware";
+
+import {
+  UserRole,
+} from "../models/User";
 
 const router = Router();
 
-// Only admins may create accounts — there is no public signup route anywhere.
+/*
+|--------------------------------------------------------------------------
+| Create User
+|--------------------------------------------------------------------------
+|
+| Super Admin:
+|   - Office Admin
+|   - Technician
+|
+| Office Admin:
+|   - Technician only
+|
+| Company/branch ownership is enforced
+| inside user.service.ts.
+|
+*/
 router.post(
   "/",
   authenticate,
@@ -18,11 +47,25 @@ router.post(
     UserRole.SUPER_ADMIN,
     UserRole.OFFICE_ADMIN
   ),
-  validateBody(createUserSchema),
+  validateBody(
+    createUserSchema
+  ),
   userController.create
 );
 
-// Update user
+/*
+|--------------------------------------------------------------------------
+| Update User
+|--------------------------------------------------------------------------
+|
+| Super Admin:
+|   - Office Admin
+|   - Technician
+|
+| Office Admin:
+|   - own-company Technicians only
+|
+*/
 router.patch(
   "/:id",
   authenticate,
@@ -30,10 +73,25 @@ router.patch(
     UserRole.SUPER_ADMIN,
     UserRole.OFFICE_ADMIN
   ),
-  validateBody(updateUserSchema),
+  validateBody(
+    updateUserSchema
+  ),
   userController.update
 );
 
+/*
+|--------------------------------------------------------------------------
+| Delete User
+|--------------------------------------------------------------------------
+|
+| Super Admin:
+|   - Office Admin
+|   - Technician
+|
+| Office Admin:
+|   - own-company Technicians only
+|
+*/
 router.delete(
   "/:id",
   authenticate,

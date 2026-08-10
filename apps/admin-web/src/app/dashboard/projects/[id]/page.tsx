@@ -21,17 +21,26 @@ export default async function ProjectDetailsPage({ params }: ProjectDetailsPageP
 
   try {
     const [projectData, historyData] = await Promise.all([
-      backendFetch<{ project: Project & ProjectWithAssignedTechnicians }>(`/projects/${id}`, {
+      backendFetch<{
+        project: Project & ProjectWithAssignedTechnicians;
+      }>(`/projects/${id}`, {
         accessToken,
       }),
-      backendFetch<{ history: ProjectStatusHistoryEntry[] }>(`/projects/${id}/history`, {
+
+      backendFetch<{
+        history: ProjectStatusHistoryEntry[];
+      }>(`/projects/${id}/history`, {
         accessToken,
       }),
     ]);
+
     project = projectData.project;
     history = historyData.history;
   } catch (err) {
-    loadError = err instanceof BackendApiError ? err.message : "Could not load this project.";
+    loadError =
+      err instanceof BackendApiError
+        ? err.message
+        : "Could not load this project.";
   }
 
   if (loadError || !project) {
@@ -138,19 +147,26 @@ export default async function ProjectDetailsPage({ params }: ProjectDetailsPageP
               <p className="mt-1 text-xs text-ink-faint">Current operations ownership for this job.</p>
             </div>
             <div className="p-5">
-              {project.assignedTechnicians && project.assignedTechnicians.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {project.assignedTechnicians.map((techId) => (
-                    <span key={techId} className={`${ui.badge} font-mono text-xs`}>
-                      {techId}
-                    </span>
-                  ))}
+              {project.assignedTechnicianId ? (
+                <div className="rounded-xl border border-border-default p-4">
+                  <p className="font-semibold text-ink">
+                    {project.assignedTechnicianId.name}
+                  </p>
+                  <p className="mt-1 text-sm text-ink-muted">
+                    {project.assignedTechnicianId.phone}
+                  </p>
+                  {project.assignedTechnicianId.email && (
+                    <p className="mt-1 text-sm text-ink-muted">
+                      {project.assignedTechnicianId.email}
+                    </p>
+                  )}
                 </div>
               ) : (
                 <p className="text-sm text-ink-muted">No technician has been assigned yet.</p>
               )}
             </div>
           </div>
+
         </div>
 
         <div className={`${ui.card} overflow-hidden border border-border-default/70`}>

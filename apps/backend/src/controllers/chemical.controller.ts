@@ -1,9 +1,14 @@
 import { Response } from "express";
+
 import { asyncHandler } from "../utils/asyncHandler";
 import { sendSuccess } from "../utils/ApiResponse";
+
 import { chemicalService } from "../services/chemical.service";
+
 import { getCallerScope } from "../utils/callerScope";
+
 import { UserRole } from "../models/User";
+
 import {
   CreateChemicalInput,
   RestockChemicalInput,
@@ -11,62 +16,287 @@ import {
   ReturnChemicalInput,
   LogUsageInput,
 } from "../validators/chemical.validators";
-import { AuthenticatedRequest } from "../middleware/auth.middleware";
+
+import {
+  AuthenticatedRequest,
+} from "../middleware/auth.middleware";
 
 export const chemicalController = {
-  list: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const activeOnly = req.query.all !== "true";
-    const chemicals = await chemicalService.listChemicals(activeOnly);
-    sendSuccess(res, 200, "Chemicals", { chemicals });
-  }),
+  /*
+  |--------------------------------------------------------------------------
+  | LIST CHEMICALS
+  |--------------------------------------------------------------------------
+  */
+  list: asyncHandler(
+    async (
+      req: AuthenticatedRequest,
+      res: Response
+    ) => {
+      const scope =
+        getCallerScope(req);
 
-  create: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const input = req.body as CreateChemicalInput;
-    const chemical = await chemicalService.createChemical(input);
-    sendSuccess(res, 201, "Chemical created", { chemical });
-  }),
+      const activeOnly =
+        req.query.all !== "true";
 
-  restock: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const input = req.body as RestockChemicalInput;
-    const chemical = await chemicalService.restock(req.params.id, input);
-    sendSuccess(res, 200, "Stock updated", { chemical });
-  }),
+      const chemicals =
+        await chemicalService.listChemicals(
+          scope,
+          activeOnly
+        );
 
-  checkout: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const scope = getCallerScope(req);
-    const input = req.body as CheckoutChemicalInput;
-    const checkout = await chemicalService.checkout(input, scope);
-    sendSuccess(res, 201, "Chemical checked out", { checkout });
-  }),
+      sendSuccess(
+        res,
+        200,
+        "Chemicals",
+        {
+          chemicals,
+        }
+      );
+    }
+  ),
 
-  returnCheckout: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const scope = getCallerScope(req);
-    const input = req.body as ReturnChemicalInput;
-    const checkout = await chemicalService.returnCheckout(req.params.id, input, scope);
-    sendSuccess(res, 200, "Return recorded", { checkout });
-  }),
+  /*
+  |--------------------------------------------------------------------------
+  | CREATE CHEMICAL
+  |--------------------------------------------------------------------------
+  */
+  create: asyncHandler(
+    async (
+      req: AuthenticatedRequest,
+      res: Response
+    ) => {
+      const scope =
+        getCallerScope(req);
 
-  listOpenCheckouts: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const scope = getCallerScope(req);
-    // A technician calling this only ever sees their own open
-    // checkouts, regardless of any query param — same "derive from
-    // the verified identity, never trust client input for who this
-    // is about" rule used everywhere else in the codebase.
-    const technicianId = scope.role === UserRole.TECHNICIAN ? scope.userId : (req.query.technicianId as string | undefined);
-    const checkouts = await chemicalService.listOpenCheckouts(technicianId);
-    sendSuccess(res, 200, "Open checkouts", { checkouts });
-  }),
+      const input =
+        req.body as CreateChemicalInput;
 
-  logUsage: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const scope = getCallerScope(req);
-    const input = req.body as LogUsageInput;
-    const usage = await chemicalService.logUsage(input, scope);
-    sendSuccess(res, 201, "Usage logged", { usage });
-  }),
+      const chemical =
+        await chemicalService.createChemical(
+          input,
+          scope
+        );
 
-  getProjectUsage: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const scope = getCallerScope(req);
-    const usage = await chemicalService.getProjectUsage(req.params.projectId, scope);
-    sendSuccess(res, 200, "Project chemical usage", { usage });
-  }),
+      sendSuccess(
+        res,
+        201,
+        "Chemical created",
+        {
+          chemical,
+        }
+      );
+    }
+  ),
+
+  /*
+  |--------------------------------------------------------------------------
+  | RESTOCK
+  |--------------------------------------------------------------------------
+  */
+  restock: asyncHandler(
+    async (
+      req: AuthenticatedRequest,
+      res: Response
+    ) => {
+      const scope =
+        getCallerScope(req);
+
+      const input =
+        req.body as RestockChemicalInput;
+
+      const chemical =
+        await chemicalService.restock(
+          req.params.id,
+          input,
+          scope
+        );
+
+      sendSuccess(
+        res,
+        200,
+        "Stock updated",
+        {
+          chemical,
+        }
+      );
+    }
+  ),
+
+  /*
+  |--------------------------------------------------------------------------
+  | CHECKOUT CHEMICAL
+  |--------------------------------------------------------------------------
+  */
+  checkout: asyncHandler(
+    async (
+      req: AuthenticatedRequest,
+      res: Response
+    ) => {
+      const scope =
+        getCallerScope(req);
+
+      const input =
+        req.body as CheckoutChemicalInput;
+
+      const checkout =
+        await chemicalService.checkout(
+          input,
+          scope
+        );
+
+      sendSuccess(
+        res,
+        201,
+        "Chemical checked out",
+        {
+          checkout,
+        }
+      );
+    }
+  ),
+
+  /*
+  |--------------------------------------------------------------------------
+  | RETURN CHEMICAL
+  |--------------------------------------------------------------------------
+  */
+  returnCheckout: asyncHandler(
+    async (
+      req: AuthenticatedRequest,
+      res: Response
+    ) => {
+      const scope =
+        getCallerScope(req);
+
+      const input =
+        req.body as ReturnChemicalInput;
+
+      const checkout =
+        await chemicalService.returnCheckout(
+          req.params.id,
+          input,
+          scope
+        );
+
+      sendSuccess(
+        res,
+        200,
+        "Return recorded",
+        {
+          checkout,
+        }
+      );
+    }
+  ),
+
+  /*
+  |--------------------------------------------------------------------------
+  | OPEN CHECKOUTS
+  |--------------------------------------------------------------------------
+  |
+  | Technician:
+  |   Always sees only their own records.
+  |
+  | Admin:
+  |   May optionally provide ?technicianId=...
+  |
+  */
+  listOpenCheckouts: asyncHandler(
+    async (
+      req: AuthenticatedRequest,
+      res: Response
+    ) => {
+      const scope =
+        getCallerScope(req);
+
+      const technicianId =
+        scope.role ===
+        UserRole.TECHNICIAN
+          ? scope.userId
+          : typeof req.query
+                .technicianId ===
+              "string"
+            ? req.query
+                .technicianId
+            : undefined;
+
+      const checkouts =
+        await chemicalService.listOpenCheckouts(
+          scope,
+          technicianId
+        );
+
+      sendSuccess(
+        res,
+        200,
+        "Open checkouts",
+        {
+          checkouts,
+        }
+      );
+    }
+  ),
+
+  /*
+  |--------------------------------------------------------------------------
+  | LOG PROJECT CHEMICAL USAGE
+  |--------------------------------------------------------------------------
+  */
+  logUsage: asyncHandler(
+    async (
+      req: AuthenticatedRequest,
+      res: Response
+    ) => {
+      const scope =
+        getCallerScope(req);
+
+      const input =
+        req.body as LogUsageInput;
+
+      const usage =
+        await chemicalService.logUsage(
+          input,
+          scope
+        );
+
+      sendSuccess(
+        res,
+        201,
+        "Usage logged",
+        {
+          usage,
+        }
+      );
+    }
+  ),
+
+  /*
+  |--------------------------------------------------------------------------
+  | PROJECT CHEMICAL USAGE
+  |--------------------------------------------------------------------------
+  */
+  getProjectUsage: asyncHandler(
+    async (
+      req: AuthenticatedRequest,
+      res: Response
+    ) => {
+      const scope =
+        getCallerScope(req);
+
+      const usage =
+        await chemicalService.getProjectUsage(
+          req.params.projectId,
+          scope
+        );
+
+      sendSuccess(
+        res,
+        200,
+        "Project chemical usage",
+        {
+          usage,
+        }
+      );
+    }
+  ),
 };
