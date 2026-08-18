@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+
 import {
   backendFetch,
   BackendApiError,
 } from "@/lib/backend-client";
-import { requireAccessToken } from "@/lib/require-token";
 
-export async function POST(
+import {
+  requireAccessToken,
+} from "@/lib/require-token";
+
+export async function GET(
   req: NextRequest
 ): Promise<NextResponse> {
   const token = requireAccessToken(req);
@@ -15,21 +19,17 @@ export async function POST(
   }
 
   try {
-    const body = await req.json();
-
-    const data = await backendFetch(
-      "/technicians/duty/end",
-      {
-        method: "POST",
-        accessToken: token,
-        body,
-      }
-    );
+    const data = await backendFetch<{
+      settings: unknown;
+    }>("/settings", {
+      method: "GET",
+      accessToken: token,
+    });
 
     return NextResponse.json({
       success: true,
-      message: "Duty ended",
       data,
+      message: "Settings loaded successfully",
     });
   } catch (err) {
     return NextResponse.json(
@@ -38,7 +38,11 @@ export async function POST(
         message:
           err instanceof BackendApiError
             ? err.message
-            : "Could not end duty",
+            : "Unable to load settings.",
+        details:
+          err instanceof BackendApiError
+            ? err.details
+            : undefined,
       },
       {
         status:

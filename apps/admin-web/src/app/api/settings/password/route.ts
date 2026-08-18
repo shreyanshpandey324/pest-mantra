@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+
 import {
   backendFetch,
   BackendApiError,
 } from "@/lib/backend-client";
-import { requireAccessToken } from "@/lib/require-token";
 
-export async function POST(
+import {
+  requireAccessToken,
+} from "@/lib/require-token";
+
+export async function PATCH(
   req: NextRequest
 ): Promise<NextResponse> {
   const token = requireAccessToken(req);
@@ -14,22 +18,37 @@ export async function POST(
     return token;
   }
 
-  try {
-    const body = await req.json();
+  let body: unknown;
 
-    const data = await backendFetch(
-      "/technicians/duty/end",
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json(
       {
-        method: "POST",
-        accessToken: token,
+        success: false,
+        message: "Invalid request body",
+      },
+      {
+        status: 400,
+      }
+    );
+  }
+
+  try {
+    const data = await backendFetch(
+      "/settings/password",
+      {
+        method: "PATCH",
         body,
+        accessToken: token,
       }
     );
 
     return NextResponse.json({
       success: true,
-      message: "Duty ended",
       data,
+      message:
+        "Password changed successfully. Please sign in again.",
     });
   } catch (err) {
     return NextResponse.json(
@@ -38,7 +57,11 @@ export async function POST(
         message:
           err instanceof BackendApiError
             ? err.message
-            : "Could not end duty",
+            : "Unable to change password.",
+        details:
+          err instanceof BackendApiError
+            ? err.details
+            : undefined,
       },
       {
         status:

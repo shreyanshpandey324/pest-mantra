@@ -33,6 +33,10 @@ import {
 } from "../models/User";
 
 import {
+  Branch,
+} from "../models/Branch";
+
+import {
   ApiError,
 } from "../utils/ApiError";
 
@@ -58,13 +62,10 @@ import {
 |--------------------------------------------------------------------------
 */
 
-function companyFilter(
+function tenantFilter(
   scope: CallerScope
 ): FilterQuery<IProject> {
-  if (
-    scope.role ===
-    UserRole.SUPER_ADMIN
-  ) {
+  if (scope.role === UserRole.SUPER_ADMIN) {
     return {};
   }
 
@@ -74,63 +75,45 @@ function companyFilter(
     );
   }
 
-  if (
-    !mongoose.Types.ObjectId.isValid(
-      scope.companyId
-    )
-  ) {
+  if (!mongoose.Types.ObjectId.isValid(scope.companyId)) {
+    throw ApiError.forbidden("Your company id is invalid");
+  }
+
+  const filter: FilterQuery<IProject> = {
+    companyId: new mongoose.Types.ObjectId(scope.companyId),
+  };
+
+  if (!scope.branchId) {
     throw ApiError.forbidden(
-      "Your company id is invalid"
+      "Your account is not linked to a branch"
     );
   }
 
-  return {
-    companyId:
-      new mongoose.Types.ObjectId(
-        scope.companyId
-      ),
-  };
+  if (!mongoose.Types.ObjectId.isValid(scope.branchId)) {
+    throw ApiError.forbidden("Your branch id is invalid");
+  }
+
+  filter.branchId = new mongoose.Types.ObjectId(scope.branchId);
+  return filter;
 }
 
 function assertProjectVisible(
   project: IProject,
   scope: CallerScope
 ): void {
-  if (
-    scope.role !==
-      UserRole.SUPER_ADMIN &&
-    !scope.companyId
-  ) {
-    throw ApiError.forbidden(
-      "Your account is not linked to a company"
-    );
+  if (scope.role !== UserRole.SUPER_ADMIN) {
+    if (!scope.companyId || !project.companyId || project.companyId.toString() !== scope.companyId) {
+      throw ApiError.notFound("Project not found");
+    }
+
+    if (!scope.branchId || !project.branchId || project.branchId.toString() !== scope.branchId) {
+      throw ApiError.notFound("Project not found");
+    }
   }
 
-  if (
-    scope.companyId &&
-    (
-      !project.companyId ||
-      project.companyId.toString() !==
-        scope.companyId
-    )
-  ) {
-    throw ApiError.notFound(
-      "Project not found"
-    );
-  }
-
-  if (
-    scope.role ===
-    UserRole.TECHNICIAN
-  ) {
-    if (
-      !project.assignedTechnicianId ||
-      project.assignedTechnicianId.toString() !==
-        scope.userId
-    ) {
-      throw ApiError.notFound(
-        "Project not found"
-      );
+  if (scope.role === UserRole.TECHNICIAN) {
+    if (!project.assignedTechnicianId || project.assignedTechnicianId.toString() !== scope.userId) {
+      throw ApiError.notFound("Project not found");
     }
   }
 }
@@ -167,45 +150,53 @@ async function generateProjectCode(): Promise<string> {
 |--------------------------------------------------------------------------
 */
 
-async function getCreatorCompanyId(
+async function getCreatorScope(
   createdBy: string
-): Promise<
-  mongoose.Types.ObjectId | undefined
-> {
-  if (
-    !mongoose.Types.ObjectId.isValid(
-      createdBy
-    )
-  ) {
-    throw ApiError.unauthorized(
-      "Invalid creating user identity"
-    );
+): Promise<{
+  companyId?: mongoose.Types.ObjectId;
+  branchId?: mongoose.Types.ObjectId;
+}> {
+  if (!mongoose.Types.ObjectId.isValid(createdBy)) {
+    throw ApiError.unauthorized("Invalid creating user identity");
   }
 
-  const creator =
-    await User.findById(
-      createdBy
-    ).select(
-      "_id role companyId"
-    );
+  const creator = await User.findById(createdBy).select(
+    "_id role companyId branchId"
+  );
 
   if (!creator) {
-    throw ApiError.unauthorized(
-      "Creating user no longer exists"
-    );
+    throw ApiError.unauthorized("Creating user no longer exists");
   }
 
-  if (
-    creator.role !==
-      UserRole.SUPER_ADMIN &&
-    !creator.companyId
-  ) {
-    throw ApiError.forbidden(
-      "Your account is not linked to a company"
-    );
+  if (creator.role !== UserRole.SUPER_ADMIN && !creator.companyId) {
+    throw ApiError.forbidden("Your account is not linked to a company");
   }
 
-  return creator.companyId;
+  if (creator.role !== UserRole.SUPER_ADMIN && !creator.branchId) {
+    throw ApiError.forbidden("Your account is not linked to a branch");
+  }
+
+  return {
+    companyId: creator.companyId,
+    branchId: creator.branchId,
+  };
+}
+
+async function validateBranchForProject(
+  companyId: mongoose.Types.ObjectId,
+  branchId: mongoose.Types.ObjectId
+): Promise<void> {
+  const branch = await Branch.findOne({
+    _id: branchId,
+    companyId,
+    isActive: true,
+  }).select("_id");
+
+  if (!branch) {
+    throw ApiError.badRequest(
+      "Branch not found, inactive, or outside the selected company"
+    );
+  }
 }
 
 /*
@@ -433,14 +424,44 @@ export const projectService = {
 
   async createProject(
     input: CreateProjectInput,
-    createdBy: string
+    scope: CallerScope
   ): Promise<IProject> {
     const MAX_ATTEMPTS = 5;
 
-    const companyId =
-      await getCreatorCompanyId(
-        createdBy
-      );
+    const creatorScope = await getCreatorScope(scope.userId);
+
+    let companyId = creatorScope.companyId;
+    let branchId = creatorScope.branchId;
+
+    if (scope.role === UserRole.SUPER_ADMIN) {
+      if (input.companyId) {
+        if (!mongoose.Types.ObjectId.isValid(input.companyId)) {
+          throw ApiError.badRequest("companyId is invalid");
+        }
+        companyId = new mongoose.Types.ObjectId(input.companyId);
+      }
+
+      if (input.branchId) {
+        if (!companyId) {
+          throw ApiError.badRequest("companyId is required when branchId is provided");
+        }
+        if (!mongoose.Types.ObjectId.isValid(input.branchId)) {
+          throw ApiError.badRequest("branchId is invalid");
+        }
+        branchId = new mongoose.Types.ObjectId(input.branchId);
+      }
+    } else {
+      if (input.companyId && input.companyId !== companyId?.toString()) {
+        throw ApiError.forbidden("You cannot create a project outside your company");
+      }
+      if (input.branchId && input.branchId !== branchId?.toString()) {
+        throw ApiError.forbidden("You cannot create a project outside your branch");
+      }
+    }
+
+    if (companyId && branchId) {
+      await validateBranchForProject(companyId, branchId);
+    }
 
     for (
       let attempt = 1;
@@ -456,12 +477,13 @@ export const projectService = {
             ...input,
 
             companyId,
+            branchId,
 
             projectCode,
 
             createdBy:
               new mongoose.Types.ObjectId(
-                createdBy
+                scope.userId
               ),
 
             status:
@@ -472,7 +494,7 @@ export const projectService = {
           project._id,
           null,
           ProjectStatus.NEW,
-          createdBy,
+          scope.userId,
           "Project created",
           companyId
         );
@@ -507,7 +529,7 @@ export const projectService = {
   ): Promise<IProject[]> {
     const filter:
       FilterQuery<IProject> = {
-      ...companyFilter(scope),
+      ...tenantFilter(scope),
     };
 
     if (
@@ -603,7 +625,7 @@ export const projectService = {
       await Project.findOne({
         _id: projectId,
 
-        ...companyFilter(scope),
+        ...tenantFilter(scope),
       })
         .populate(
           "assignedTechnicianId",
@@ -727,7 +749,7 @@ export const projectService = {
       await Project.findOne({
         _id: projectId,
 
-        ...companyFilter(scope),
+        ...tenantFilter(scope),
       });
 
     if (!project) {
@@ -772,6 +794,12 @@ export const projectService = {
         new mongoose.Types.ObjectId(
           scope.companyId
         );
+
+      if (!scope.branchId) {
+        throw ApiError.forbidden("Your account is not linked to a branch");
+      }
+
+      technicianFilter.branchId = new mongoose.Types.ObjectId(scope.branchId);
     }
 
     const technician =
@@ -807,6 +835,14 @@ export const projectService = {
       );
     }
 
+    if (project.branchId) {
+      if (!technician.branchId || technician.branchId.toString() !== project.branchId.toString()) {
+        throw ApiError.badRequest(
+          "Technician does not belong to the project's branch"
+        );
+      }
+    }
+
     const profileFilter:
       FilterQuery<
         typeof TechnicianProfile
@@ -815,11 +851,12 @@ export const projectService = {
         technician._id,
     };
 
-    if (
-      technician.companyId
-    ) {
-      profileFilter.companyId =
-        technician.companyId;
+    if (technician.companyId) {
+      profileFilter.companyId = technician.companyId;
+    }
+
+    if (technician.branchId) {
+      profileFilter.branchId = technician.branchId;
     }
 
     const technicianProfile =
@@ -902,7 +939,7 @@ export const projectService = {
           status:
             ProjectStatus.NEW,
 
-          ...companyFilter(scope),
+          ...tenantFilter(scope),
         },
         {
           $set: {
@@ -1025,7 +1062,7 @@ export const projectService = {
           status:
             previousStatus,
 
-          ...companyFilter(scope),
+          ...tenantFilter(scope),
         },
         {
           $set:
@@ -1089,7 +1126,7 @@ export const projectService = {
       await Project.findOne({
         _id: projectId,
 
-        ...companyFilter(scope),
+        ...tenantFilter(scope),
       });
 
     if (!project) {
@@ -1103,7 +1140,7 @@ export const projectService = {
         _id:
           project._id,
 
-        ...companyFilter(scope),
+        ...tenantFilter(scope),
       });
 
     if (
@@ -1133,67 +1170,26 @@ export const projectService = {
   async deleteAllProjects(
     scope: CallerScope
   ): Promise<number> {
-    if (
-      scope.role !==
-        UserRole.SUPER_ADMIN &&
-      scope.role !==
-        UserRole.OFFICE_ADMIN
-    ) {
-      throw ApiError.forbidden(
-        "Only admins can delete projects"
-      );
+    if (scope.role !== UserRole.SUPER_ADMIN && scope.role !== UserRole.OFFICE_ADMIN) {
+      throw ApiError.forbidden("Only admins can delete projects");
     }
 
-    if (!scope.companyId) {
-      throw ApiError.badRequest(
-        "Company context is required for this operation"
-      );
-    }
+    const filter: FilterQuery<IProject> = tenantFilter(scope);
 
-    if (
-      !mongoose.Types.ObjectId.isValid(
-        scope.companyId
-      )
-    ) {
-      throw ApiError.badRequest(
-        "Invalid company id"
-      );
-    }
+    const projects = await Project.find(filter).select("_id companyId");
+    const projectIds = projects.map((project) => project._id);
 
-    const companyId =
-      new mongoose.Types.ObjectId(
-        scope.companyId
-      );
-
-    const projects =
-      await Project.find({
-        companyId,
-      }).select(
-        "_id"
-      );
-
-    const projectIds =
-      projects.map(
-        (project) =>
-          project._id
-      );
-
-    if (
-      projectIds.length === 0
-    ) {
+    if (projectIds.length === 0) {
       return 0;
     }
 
-    const deleted =
-      await Project.deleteMany({
-        companyId,
-      });
+    const deleted = await Project.deleteMany(filter);
 
     await cleanupProjectData(
       projectIds,
-      companyId
+      scope.role === UserRole.SUPER_ADMIN ? undefined : new mongoose.Types.ObjectId(scope.companyId!)
     );
 
     return deleted.deletedCount;
-  },
+  }
 };

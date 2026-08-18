@@ -56,10 +56,6 @@ async function getValidatedBranch(
     );
   }
 
-  /*
-   * A branch used by a company user MUST
-   * belong to a company.
-   */
   if (!branch.companyId) {
     throw ApiError.badRequest(
       "This branch is not linked to a company"
@@ -76,14 +72,17 @@ async function getValidatedBranch(
     );
   }
 
+  if (!branch.isActive) {
+    throw ApiError.badRequest(
+      "This branch is inactive"
+    );
+  }
+
   return branch;
 }
 
 /**
  * Determine the company from a branch.
- *
- * Every non-super-admin user must have
- * a company through their branch.
  */
 async function resolveCompanyFromBranch(
   branchId: string,
@@ -132,9 +131,8 @@ function assertSameCompany(
 }
 
 /**
- * Office Admins may manage technicians
- * only. Super Admins may manage office
- * admins and technicians.
+ * Check whether the target role can be
+ * managed by the caller.
  */
 function assertCanManageRole(
   targetRole: UserRole,
@@ -188,7 +186,7 @@ export const userService = {
    * Office Admin:
    * - can create Technician only
    * - technician must belong to the
-   *   Office Admin's own company
+   *   Office Admin's own company and branch
    */
   async createUser(
     input: CreateUserInput,
@@ -199,9 +197,6 @@ export const userService = {
       scope
     );
 
-    /*
-     * Phone number is globally unique.
-     */
     const existing =
       await User.findOne({
         phone: input.phone,
@@ -235,6 +230,13 @@ export const userService = {
         );
       }
 
+      /*
+       * For Office Admin, the branch must
+       * belong to the authenticated company.
+       *
+       * For Super Admin, any valid active
+       * company branch may be selected.
+       */
       companyId =
         await resolveCompanyFromBranch(
           input.branchId,
@@ -251,8 +253,7 @@ export const userService = {
     }
 
     /*
-     * Create the user with the company
-     * derived from the verified branch.
+     * Create the user.
      */
     const user =
       await User.create({
@@ -268,6 +269,10 @@ export const userService = {
 
     /*
      * Technicians receive a profile.
+     *
+     * IMPORTANT:
+     * Keep companyId + branchId synchronized
+     * with the User account.
      */
     if (
       input.role ===
@@ -278,6 +283,7 @@ export const userService = {
 
       await TechnicianProfile.create({
         companyId,
+        branchId,
         userId: user._id,
         employeeCode,
       });
@@ -288,9 +294,6 @@ export const userService = {
 
   /**
    * Update a user.
-   *
-   * Company ownership is always checked
-   * before modifying the account.
    */
   async updateUser(
     userId: string,
@@ -319,8 +322,8 @@ export const userService = {
     }
 
     /*
-     * Never allow this endpoint to
-     * modify a super admin.
+     * Super Admin accounts cannot be
+     * modified through this endpoint.
      */
     if (
       user.role ===
@@ -336,10 +339,6 @@ export const userService = {
       scope
     );
 
-    /*
-     * Office Admin can only update
-     * technicians.
-     */
     assertCanManageRole(
       user.role,
       scope
@@ -380,8 +379,15 @@ export const userService = {
       input.email;
 
     /*
-     * Branch changes are validated
-     * against the caller's company.
+     * Track whether the branch changed.
+     */
+    let newBranchId:
+      | mongoose.Types.ObjectId
+      | undefined;
+
+    /*
+     * Branch changes are validated against
+     * the caller's company.
      */
     if (input.branchId) {
       const newCompanyId =
@@ -393,8 +399,13 @@ export const userService = {
             : scope.companyId
         );
 
+      newBranchId =
+        new mongoose.Types.ObjectId(
+          input.branchId
+        );
+
       /*
-       * Existing user company must remain
+       * Existing company must remain
        * consistent with the new branch.
        */
       if (
@@ -403,10 +414,8 @@ export const userService = {
           newCompanyId.toString()
       ) {
         /*
-         * Super Admin is allowed to move
-         * a user between companies.
-         *
-         * Office Admin is not.
+         * Only Super Admin can move a user
+         * between companies.
          */
         if (
           scope.role !==
@@ -422,9 +431,7 @@ export const userService = {
         newCompanyId;
 
       user.branchId =
-        new mongoose.Types.ObjectId(
-          input.branchId
-        );
+        newBranchId;
 
       /*
        * Keep technician profile tenant
@@ -442,10 +449,91 @@ export const userService = {
             $set: {
               companyId:
                 newCompanyId,
+              branchId:
+                newBranchId,
             },
           }
         );
       }
+    }
+
+    /*
+     * Update technician-specific fields.
+     */
+    if (
+      user.role ===
+      UserRole.TECHNICIAN
+    ) {
+      const profileUpdate: Record<
+        string,
+        unknown
+      > = {};
+
+      if (
+        input.vehicleNumber !==
+        undefined
+      ) {
+        profileUpdate.vehicleNumber =
+          input.vehicleNumber;
+      }
+
+      if (
+        input.skills !==
+        undefined
+      ) {
+        profileUpdate.skills =
+          input.skills;
+      }
+
+      if (
+        input.dutyStatus !==
+        undefined
+      ) {
+        profileUpdate.currentDutyStatus =
+          input.dutyStatus;
+      }
+
+      /*
+       * Keep branch/company synchronized even
+       * when branchId was not explicitly changed.
+       */
+      if (user.companyId) {
+        profileUpdate.companyId =
+          user.companyId;
+      }
+
+      if (user.branchId) {
+        profileUpdate.branchId =
+          user.branchId;
+      }
+
+      if (
+        Object.keys(profileUpdate)
+          .length > 0
+      ) {
+        await TechnicianProfile.updateOne(
+          {
+            userId: user._id,
+          },
+          {
+            $set: profileUpdate,
+          },
+          {
+            upsert: true,
+          }
+        );
+      }
+    }
+
+    /*
+     * Active status belongs to User.
+     */
+    if (
+      input.isActive !==
+      undefined
+    ) {
+      user.isActive =
+        input.isActive;
     }
 
     await user.save();
@@ -455,9 +543,6 @@ export const userService = {
 
   /**
    * Delete a user.
-   *
-   * Company ownership and role permissions
-   * are checked before deletion.
    */
   async deleteUser(
     userId: string,
@@ -510,11 +595,9 @@ export const userService = {
       user.role ===
       UserRole.TECHNICIAN
     ) {
-      await TechnicianProfile.deleteOne(
-        {
-          userId: user._id,
-        }
-      );
+      await TechnicianProfile.deleteOne({
+        userId: user._id,
+      });
     }
 
     await User.deleteOne({

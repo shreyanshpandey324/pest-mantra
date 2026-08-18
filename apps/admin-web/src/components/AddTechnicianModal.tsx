@@ -1,6 +1,11 @@
 "use client";
 
-import { FormEvent, useEffect, useRef, useState } from "react";
+import {
+  FormEvent,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { UserRole } from "@/types/auth";
 import { ui } from "@/lib/ui-classes";
 
@@ -9,13 +14,23 @@ interface AddTechnicianModalProps {
   onCreated: () => void;
 }
 
+interface Branch {
+  _id: string;
+  name: string;
+  city: string;
+  state: string;
+  isActive: boolean;
+  companyId?: string;
+}
+
 const PHONE_REGEX = /^[6-9]\d{9}$/;
 
 export function AddTechnicianModal({
   onClose,
   onCreated,
 }: AddTechnicianModalProps) {
-  const firstInputRef = useRef<HTMLInputElement>(null);
+  const firstInputRef =
+    useRef<HTMLInputElement>(null);
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -23,8 +38,19 @@ export function AddTechnicianModal({
   const [password, setPassword] = useState("");
   const [branchId, setBranchId] = useState("");
 
-  const [error, setError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [branches, setBranches] = useState<Branch[]>(
+    []
+  );
+  const [isLoadingBranches, setIsLoadingBranches] =
+    useState(true);
+  const [branchLoadError, setBranchLoadError] =
+    useState<string | null>(null);
+
+  const [error, setError] =
+    useState<string | null>(null);
+
+  const [isSubmitting, setIsSubmitting] =
+    useState(false);
 
   useEffect(() => {
     firstInputRef.current?.focus();
@@ -35,12 +61,86 @@ export function AddTechnicianModal({
       }
     }
 
-    document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener(
+      "keydown",
+      handleKeyDown
+    );
 
     return () => {
-      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener(
+        "keydown",
+        handleKeyDown
+      );
     };
   }, [onClose]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadBranches() {
+      setIsLoadingBranches(true);
+      setBranchLoadError(null);
+
+      try {
+        const response = await fetch(
+          "/api/companies/branches",
+          {
+            method: "GET",
+            credentials: "same-origin",
+            cache: "no-store",
+          }
+        );
+
+        const json = await response.json();
+
+        if (
+          !response.ok ||
+          !json.success
+        ) {
+          throw new Error(
+            json.message ??
+              "Unable to load branches."
+          );
+        }
+
+        const loadedBranches: Branch[] =
+          json.data?.branches ?? [];
+
+        if (!cancelled) {
+          const activeBranches =
+            loadedBranches.filter(
+              (branch) => branch.isActive
+            );
+
+          setBranches(activeBranches);
+
+          if (activeBranches.length === 1) {
+            setBranchId(
+              activeBranches[0]._id
+            );
+          }
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setBranchLoadError(
+            err instanceof Error
+              ? err.message
+              : "Unable to load branches."
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingBranches(false);
+        }
+      }
+    }
+
+    loadBranches();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function handleSubmit(
     e: FormEvent<HTMLFormElement>
@@ -50,47 +150,84 @@ export function AddTechnicianModal({
     setError(null);
 
     if (name.trim().length < 2) {
-      setError("Enter technician name.");
+      setError(
+        "Enter technician name."
+      );
       return;
     }
 
-    if (!PHONE_REGEX.test(phone.trim())) {
-      setError("Enter a valid 10-digit mobile number.");
+    if (
+      !PHONE_REGEX.test(phone.trim())
+    ) {
+      setError(
+        "Enter a valid 10-digit mobile number."
+      );
       return;
     }
 
     if (password.length < 8) {
-      setError("Password must be at least 8 characters.");
+      setError(
+        "Password must be at least 8 characters."
+      );
       return;
     }
 
     if (!branchId.trim()) {
-      setError("Branch ID is required.");
+      setError(
+        "Please select a branch."
+      );
+      return;
+    }
+
+    if (isLoadingBranches) {
+      setError(
+        "Please wait while branches are loading."
+      );
+      return;
+    }
+
+    if (branches.length === 0) {
+      setError(
+        "No active branches are available."
+      );
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      const response = await fetch("/api/users", {
-        method: "POST",
-        credentials: "same-origin",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: name.trim(),
-          phone: phone.trim(),
-          email: email.trim() || undefined,
-          password,
-          role: UserRole.TECHNICIAN,
-          branchId,
-        }),
-      });
-      const json = await response.json();
+      const response = await fetch(
+        "/api/users",
+        {
+          method: "POST",
+          credentials: "same-origin",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            name: name.trim(),
+            phone: phone.trim(),
+            email:
+              email.trim() || undefined,
+            password,
+            role: UserRole.TECHNICIAN,
+            branchId,
+          }),
+        }
+      );
 
-      if (!response.ok || !json.success) {
-        setError(json.message ?? "Unable to create technician.");
+      const json =
+        await response.json();
+
+      if (
+        !response.ok ||
+        !json.success
+      ) {
+        setError(
+          json.message ??
+            "Unable to create technician."
+        );
         setIsSubmitting(false);
         return;
       }
@@ -98,7 +235,9 @@ export function AddTechnicianModal({
       onCreated();
       onClose();
     } catch {
-      setError("Unable to connect to server.");
+      setError(
+        "Unable to connect to server."
+      );
       setIsSubmitting(false);
       return;
     }
@@ -113,7 +252,9 @@ export function AddTechnicianModal({
     >
       <div
         className={`${ui.card} max-h-[90vh] w-full max-w-[520px] overflow-y-auto p-7`}
-        onClick={(e) => e.stopPropagation()}
+        onClick={(e) =>
+          e.stopPropagation()
+        }
       >
         <h2 className="mb-1 text-xl font-semibold">
           Add Technician
@@ -128,7 +269,10 @@ export function AddTechnicianModal({
           className="flex flex-col gap-4"
         >
           <div>
-            <label htmlFor="technician-name" className={ui.label}>
+            <label
+              htmlFor="technician-name"
+              className={ui.label}
+            >
               Full Name
             </label>
 
@@ -137,7 +281,9 @@ export function AddTechnicianModal({
               ref={firstInputRef}
               className={ui.input}
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) =>
+                setName(e.target.value)
+              }
               placeholder="Enter technician name"
               autoComplete="name"
               required
@@ -145,7 +291,10 @@ export function AddTechnicianModal({
           </div>
 
           <div>
-            <label htmlFor="technician-phone" className={ui.label}>
+            <label
+              htmlFor="technician-phone"
+              className={ui.label}
+            >
               Mobile Number
             </label>
 
@@ -157,7 +306,12 @@ export function AddTechnicianModal({
               maxLength={10}
               value={phone}
               onChange={(e) =>
-                setPhone(e.target.value.replace(/\D/g, ""))
+                setPhone(
+                  e.target.value.replace(
+                    /\D/g,
+                    ""
+                  )
+                )
               }
               placeholder="9876543210"
               required
@@ -165,7 +319,10 @@ export function AddTechnicianModal({
           </div>
 
           <div>
-            <label htmlFor="technician-email" className={ui.label}>
+            <label
+              htmlFor="technician-email"
+              className={ui.label}
+            >
               Email (Optional)
             </label>
 
@@ -174,13 +331,18 @@ export function AddTechnicianModal({
               className={ui.input}
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) =>
+                setEmail(e.target.value)
+              }
               placeholder="technician@pestmantra.in"
             />
           </div>
 
           <div>
-            <label htmlFor="technician-password" className={ui.label}>
+            <label
+              htmlFor="technician-password"
+              className={ui.label}
+            >
               Password
             </label>
 
@@ -189,28 +351,84 @@ export function AddTechnicianModal({
               className={ui.input}
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) =>
+                setPassword(e.target.value)
+              }
               placeholder="Minimum 8 characters"
-              required
-            />
-          </div>          <div>
-            <label htmlFor="technician-branch" className={ui.label}>
-              Branch ID
-            </label>
-
-            <input
-              id="technician-branch"
-              className={ui.input}
-              value={branchId}
-              onChange={(e) => setBranchId(e.target.value)}
-              placeholder="MongoDB Branch ID"
+              autoComplete="new-password"
               required
             />
           </div>
 
+          <div>
+            <label
+              htmlFor="technician-branch"
+              className={ui.label}
+            >
+              Branch
+            </label>
+
+            {isLoadingBranches ? (
+              <div
+                className={`${ui.input} flex items-center text-ink-muted`}
+              >
+                Loading branches...
+              </div>
+            ) : branchLoadError ? (
+              <div className="rounded-lg border border-danger/30 bg-danger/10 px-4 py-3">
+                <p className={ui.errorText}>
+                  {branchLoadError}
+                </p>
+
+                <button
+                  type="button"
+                  className="mt-2 text-sm font-medium text-accent hover:underline"
+                  onClick={() =>
+                    window.location.reload()
+                  }
+                >
+                  Reload
+                </button>
+              </div>
+            ) : branches.length === 0 ? (
+              <div className="rounded-lg border border-warning/30 bg-warning/10 px-4 py-3">
+                <p className="text-sm text-warning">
+                  No active branches are available.
+                </p>
+              </div>
+            ) : (
+              <select
+                id="technician-branch"
+                className={ui.input}
+                value={branchId}
+                onChange={(e) =>
+                  setBranchId(e.target.value)
+                }
+                required
+              >
+                <option value="">
+                  Select a branch
+                </option>
+
+                {branches.map((branch) => (
+                  <option
+                    key={branch._id}
+                    value={branch._id}
+                  >
+                    {branch.name} —{" "}
+                    {branch.city},{" "}
+                    {branch.state}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+
           {error && (
             <div className="rounded-lg border border-danger/30 bg-danger/10 px-4 py-3">
-              <p className={ui.errorText}>{error}</p>
+              <p className={ui.errorText}>
+                {error}
+              </p>
             </div>
           )}
 
@@ -227,14 +445,19 @@ export function AddTechnicianModal({
             <button
               type="submit"
               className={ui.btnPrimary}
-              disabled={isSubmitting}
+              disabled={
+                isSubmitting ||
+                isLoadingBranches ||
+                branches.length === 0
+              }
               aria-busy={isSubmitting}
             >
               {isSubmitting
                 ? "Creating Technician..."
                 : "Create Technician"}
             </button>
-          </div>        </form>
+          </div>
+        </form>
       </div>
     </div>
   );

@@ -42,6 +42,7 @@ export interface IProject
   _id: Types.ObjectId;
 
   companyId?: Types.ObjectId;
+  branchId?: Types.ObjectId;
 
   projectCode: string;
 
@@ -84,6 +85,12 @@ const projectSchema =
       companyId: {
         type: Schema.Types.ObjectId,
         ref: "Company",
+        index: true,
+      },
+
+      branchId: {
+        type: Schema.Types.ObjectId,
+        ref: "Branch",
         index: true,
       },
 
@@ -218,6 +225,7 @@ const projectSchema =
 */
 projectSchema.index({
   companyId: 1,
+  branchId: 1,
   status: 1,
   scheduledDate: 1,
 });
@@ -232,6 +240,7 @@ projectSchema.index({
 */
 projectSchema.index({
   companyId: 1,
+  branchId: 1,
   assignedTechnicianId: 1,
   status: 1,
 });
@@ -246,6 +255,7 @@ projectSchema.index({
 */
 projectSchema.index({
   companyId: 1,
+  branchId: 1,
   assignedTechnicianId: 1,
   scheduledDate: 1,
   scheduledTimeSlot: 1,
@@ -258,6 +268,7 @@ projectSchema.index({
 */
 projectSchema.index({
   companyId: 1,
+  branchId: 1,
   createdBy: 1,
   createdAt: -1,
 });
@@ -269,6 +280,7 @@ projectSchema.index({
 */
 projectSchema.index({
   companyId: 1,
+  branchId: 1,
   assignedTechnicianId: 1,
   scheduledDate: 1,
   status: 1,
@@ -281,6 +293,7 @@ projectSchema.index({
 */
 projectSchema.index({
   companyId: 1,
+  branchId: 1,
   completedAt: -1,
 });
 

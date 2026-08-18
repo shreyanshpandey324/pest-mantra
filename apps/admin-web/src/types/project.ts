@@ -40,30 +40,53 @@ export enum PaymentMethod {
   CHEQUE = "cheque",
   ADVANCE = "advance",
 }
+
 export interface AssignedTechnician {
   _id: string;
   name: string;
   phone: string;
   email?: string;
+  branchId?: string;
 }
 
 export interface Project {
   _id: string;
+
+  /*
+   * Ownership / scope
+   *
+   * These values come from the backend.
+   * The frontend must NOT use client-provided
+   * values to bypass authorization.
+   */
+  companyId?: string;
+  branchId?: string;
+
   projectCode: string;
+
   customerName: string;
   customerPhone: string;
   address: string;
+
   serviceType: ServiceType;
   status: ProjectStatus;
+
   assignedTechnicianId?: AssignedTechnician;
+
   assignedBy?: string;
   assignedAt?: string;
+
   scheduledDate?: string;
   scheduledTimeSlot?: string;
+
   createdBy: string;
+
   paymentMethod?: PaymentMethod;
+
   notes?: string;
+
   completedAt?: string;
+
   createdAt: string;
   updatedAt: string;
 }
@@ -74,7 +97,12 @@ export interface TechnicianListItem {
   phone: string;
 
   email?: string;
+
+  /*
+   * Technician's actual branch from backend.
+   */
   branchId?: string;
+
   isActive: boolean;
 
   employeeCode: string;
@@ -94,20 +122,27 @@ export interface EditTechnicianFormData {
   name: string;
   phone: string;
   email?: string;
+
   branchId?: string;
+
   employeeCode: string;
   vehicleNumber?: string;
   skills: string[];
+
   isActive: boolean;
+
   dutyStatus: TechnicianListItem["dutyStatus"];
 }
 
 export interface ProjectStatusHistoryEntry {
   _id: string;
   projectId: string;
+
   fromStatus: ProjectStatus | null;
   toStatus: ProjectStatus;
+
   changedBy: string;
   changedAt: string;
+
   remarks?: string;
 }

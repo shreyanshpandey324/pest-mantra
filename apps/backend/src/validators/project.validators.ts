@@ -90,6 +90,16 @@ export const createProjectSchema =
         ServiceType
       ),
 
+    companyId: z
+      .string()
+      .trim()
+      .optional(),
+
+    branchId: z
+      .string()
+      .trim()
+      .optional(),
+
     notes: z
       .string()
       .trim()

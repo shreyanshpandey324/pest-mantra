@@ -10,18 +10,36 @@ export enum DutyStatus {
 
 export interface ITechnicianProfile extends Document {
   _id: Types.ObjectId;
+
   companyId?: Types.ObjectId;
+
+  /**
+   * Branch this technician belongs to.
+   *
+   * Required for branch-level authorization.
+   * Office Admins must only be able to manage
+   * technicians belonging to their own branch.
+   */
+  branchId?: Types.ObjectId;
+
   userId: Types.ObjectId;
+
   employeeCode: string;
+
   skills: string[];
+
   vehicleNumber?: string;
+
   currentDutyStatus: DutyStatus;
+
   lastStatusChangeAt?: Date;
+
   lastKnownLocation?: {
     lat: number;
     lng: number;
     at: Date;
   };
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -32,6 +50,12 @@ const technicianProfileSchema =
       companyId: {
         type: Schema.Types.ObjectId,
         ref: "Company",
+        index: true,
+      },
+
+      branchId: {
+        type: Schema.Types.ObjectId,
+        ref: "Branch",
         index: true,
       },
 
@@ -46,6 +70,7 @@ const technicianProfileSchema =
         type: String,
         required: true,
         trim: true,
+        maxlength: 100,
       },
 
       skills: {
@@ -56,6 +81,7 @@ const technicianProfileSchema =
       vehicleNumber: {
         type: String,
         trim: true,
+        maxlength: 50,
       },
 
       currentDutyStatus: {
@@ -69,19 +95,50 @@ const technicianProfileSchema =
       },
 
       lastKnownLocation: {
-        lat: { type: Number },
-        lng: { type: Number },
-        at: { type: Date },
+        lat: {
+          type: Number,
+        },
+
+        lng: {
+          type: Number,
+        },
+
+        at: {
+          type: Date,
+        },
       },
     },
-    { timestamps: true }
+    {
+      timestamps: true,
+    }
   );
 
+/**
+ * Technician lookup by company + branch.
+ *
+ * This is important for:
+ * - Office Admin branch isolation
+ * - Technician assignment
+ * - Project authorization
+ */
+technicianProfileSchema.index({
+  companyId: 1,
+  branchId: 1,
+});
+
+/**
+ * Employee codes should be easy to locate
+ * inside a company.
+ */
 technicianProfileSchema.index({
   companyId: 1,
   employeeCode: 1,
 });
 
+/**
+ * User -> TechnicianProfile is already unique
+ * through the unique userId field.
+ */
 export const TechnicianProfile =
   model<ITechnicianProfile>(
     "TechnicianProfile",

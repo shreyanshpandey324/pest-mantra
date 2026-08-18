@@ -1,0 +1,166 @@
+Folder PATH listing
+Volume serial number is 000001FC A820:4091
+C:\USERS\HP\DOWNLOADS\PEST-MANTRA-MERGED\PEST-MANTRA\APPS\ADMIN-WEB\SRC
+¦   middleware.ts
+¦   
++---app
+¦   ¦   globals.css
+¦   ¦   layout.tsx
+¦   ¦   page.tsx
+¦   ¦   
+¦   +---api
+¦   ¦   +---auth
+¦   ¦   ¦   +---login
+¦   ¦   ¦   ¦       route.ts
+¦   ¦   ¦   ¦       
+¦   ¦   ¦   +---logout
+¦   ¦   ¦   ¦       route.ts
+¦   ¦   ¦   ¦       
+¦   ¦   ¦   +---me
+¦   ¦   ¦   ¦       route.ts
+¦   ¦   ¦   ¦       
+¦   ¦   ¦   +---refresh
+¦   ¦   ¦           route.ts
+¦   ¦   ¦           
+¦   ¦   +---chemicals
+¦   ¦   ¦   ¦   route.ts
+¦   ¦   ¦   ¦   
+¦   ¦   ¦   +---checkout
+¦   ¦   ¦   ¦   ¦   route.ts
+¦   ¦   ¦   ¦   ¦   
+¦   ¦   ¦   ¦   +---open
+¦   ¦   ¦   ¦   ¦       route.ts
+¦   ¦   ¦   ¦   ¦       
+¦   ¦   ¦   ¦   +---[id]
+¦   ¦   ¦   ¦       +---return
+¦   ¦   ¦   ¦               route.ts
+¦   ¦   ¦   ¦               
+¦   ¦   ¦   +---[id]
+¦   ¦   ¦       +---restock
+¦   ¦   ¦               route.ts
+¦   ¦   ¦               
+¦   ¦   +---companies
+¦   ¦   ¦   ¦   route.ts
+¦   ¦   ¦   ¦   
+¦   ¦   ¦   +---branches
+¦   ¦   ¦   ¦       route.ts
+¦   ¦   ¦   ¦       
+¦   ¦   ¦   +---[id]
+¦   ¦   ¦       ¦   route.ts
+¦   ¦   ¦       ¦   
+¦   ¦   ¦       +---approve
+¦   ¦   ¦       ¦       route.ts
+¦   ¦   ¦       ¦       
+¦   ¦   ¦       +---suspend
+¦   ¦   ¦               route.ts
+¦   ¦   ¦               
+¦   ¦   +---mileage
+¦   ¦   ¦   +---report
+¦   ¦   ¦           route.ts
+¦   ¦   ¦           
+¦   ¦   +---projects
+¦   ¦   ¦   ¦   route.ts
+¦   ¦   ¦   ¦   
+¦   ¦   ¦   +---delete-all
+¦   ¦   ¦   ¦       route.ts
+¦   ¦   ¦   ¦       
+¦   ¦   ¦   +---[id]
+¦   ¦   ¦       ¦   route.ts
+¦   ¦   ¦       ¦   
+¦   ¦   ¦       +---assign
+¦   ¦   ¦       ¦       route.ts
+¦   ¦   ¦       ¦       
+¦   ¦   ¦       +---history
+¦   ¦   ¦       ¦       route.ts
+¦   ¦   ¦       ¦       
+¦   ¦   ¦       +---status
+¦   ¦   +---technicians
+¦   ¦   ¦       route.ts
+¦   ¦   ¦       
+¦   ¦   +---tracking
+¦   ¦   ¦   +---live
+¦   ¦   ¦           route.ts
+¦   ¦   ¦           
+¦   ¦   +---users
+¦   ¦       ¦   route.ts
+¦   ¦       ¦   
+¦   ¦       +---[id]
+¦   ¦               route.ts
+¦   ¦               
+¦   +---dashboard
+¦   ¦   ¦   layout.tsx
+¦   ¦   ¦   page.tsx
+¦   ¦   ¦   
+¦   ¦   +---companies
+¦   ¦   ¦       page.tsx
+¦   ¦   ¦       
+¦   ¦   +---complaints
+¦   ¦   ¦       page.tsx
+¦   ¦   ¦       
+¦   ¦   +---inventory
+¦   ¦   ¦       page.tsx
+¦   ¦   ¦       
+¦   ¦   +---mileage
+¦   ¦   ¦       page.tsx
+¦   ¦   ¦       
+¦   ¦   +---projects
+¦   ¦   ¦   ¦   page.tsx
+¦   ¦   ¦   ¦   
+¦   ¦   ¦   +---[id]
+¦   ¦   ¦           page.tsx
+¦   ¦   ¦           
+¦   ¦   +---reports
+¦   ¦   ¦       page.tsx
+¦   ¦   ¦       
+¦   ¦   +---settings
+¦   ¦   ¦       page.tsx
+¦   ¦   ¦       
+¦   ¦   +---technicians
+¦   ¦   ¦   ¦   page.tsx
+¦   ¦   ¦   ¦   
+¦   ¦   ¦   +---[id]
+¦   ¦   ¦           page.tsx
+¦   ¦   ¦           
+¦   ¦   +---tracking
+¦   ¦           page.tsx
+¦   ¦           
+¦   +---login
+¦           page.tsx
+¦           
++---components
+¦   ¦   AddChemicalModal.tsx
+¦   ¦   AddTechnicianModal.tsx
+¦   ¦   AssignModal.tsx
+¦   ¦   ComingSoonPage.tsx
+¦   ¦   CompanyManagementClient.tsx
+¦   ¦   DeleteConfirmationModal.tsx
+¦   ¦   EditTechnicianModal.tsx
+¦   ¦   InventoryBoard.tsx
+¦   ¦   IssueChemicalModal.tsx
+¦   ¦   LiveBoard.tsx
+¦   ¦   LoginForm.tsx
+¦   ¦   LogoutButton.tsx
+¦   ¦   NewProjectModal.tsx
+¦   ¦   ProjectsClient.tsx
+¦   ¦   Sidebar.tsx
+¦   ¦   TechnicianFilters.tsx
+¦   ¦   TechnicianProfileDrawer.tsx
+¦   ¦   TechniciansClient.tsx
+¦   ¦   TechnicianStats.tsx
+¦   ¦   Topbar.tsx
+¦   ¦   
+¦   +---tracking
+¦           TechnicianLiveMap.tsx
+¦           
++---lib
+¦       backend-client.ts
+¦       require-token.ts
+¦       session.ts
+¦       ui-classes.ts
+¦       
++---types
+        auth.ts
+        inventory.ts
+        project.ts
+        tracking.ts
+        

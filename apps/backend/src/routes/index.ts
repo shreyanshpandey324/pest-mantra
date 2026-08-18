@@ -7,6 +7,8 @@ import technicianRoutes from "./technician.routes";
 import chemicalRoutes from "./chemical.routes";
 import locationRoutes from "./location.routes";
 import companyRoutes from "./company.routes";
+import mileageRoutes from "./mileage.routes";
+import settingsRoutes from "./settings.routes";
 
 const router = Router();
 
@@ -43,6 +45,16 @@ router.use(
 router.use(
   "/companies",
   companyRoutes
+);
+
+router.use(
+  "/mileage",
+  mileageRoutes
+);
+
+router.use(
+  "/settings",
+  settingsRoutes
 );
 
 export default router;

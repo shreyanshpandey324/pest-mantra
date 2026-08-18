@@ -1,0 +1,90 @@
+Folder PATH listing
+Volume serial number is 00000185 A820:4091
+C:\USERS\HP\DOWNLOADS\PEST-MANTRA-MERGED\PEST-MANTRA\APPS\BACKEND\SRC
+¦   app.ts
+¦   server.ts
+¦   
++---config
+¦       db.ts
+¦       env.ts
+¦       
++---controllers
+¦       auth.controller.ts
+¦       branch.controller.ts
+¦       chemical.controller.ts
+¦       company.controller.ts
+¦       location.controller.ts
+¦       mileage.controller.ts
+¦       photo.controller.ts
+¦       project.controller.ts
+¦       technician.controller.ts
+¦       user.controller.ts
+¦       
++---middleware
+¦       auth.middleware.ts
+¦       error.middleware.ts
+¦       rateLimit.middleware.ts
+¦       upload.middleware.ts
+¦       validate.middleware.ts
+¦       
++---models
+¦       Branch.ts
+¦       Chemical.ts
+¦       ChemicalCheckout.ts
+¦       Company.ts
+¦       DutyLog.ts
+¦       Location.ts
+¦       Project.ts
+¦       ProjectChemicalUsage.ts
+¦       ProjectPhoto.ts
+¦       ProjectStatusHistory.ts
+¦       RefreshToken.ts
+¦       TechnicianProfile.ts
+¦       User.ts
+¦       
++---routes
+¦       auth.routes.ts
+¦       branch.routes.ts
+¦       chemical.routes.ts
+¦       company.routes.ts
+¦       index.ts
+¦       location.routes.ts
+¦       mileage.routes.ts
+¦       project.routes.ts
+¦       technician.routes.ts
+¦       user.routes.ts
+¦       
++---scripts
+¦       seedSuperAdmin.ts
+¦       seedTechnicians.ts
+¦       
++---services
+¦       auth.service.ts
+¦       branch.service.ts
+¦       chemical.service.ts
+¦       company.service.ts
+¦       location.service.ts
+¦       mileage.service.ts
+¦       photo.service.ts
+¦       project.service.ts
+¦       technician.service.ts
+¦       user.service.ts
+¦       
++---utils
+¦       ApiError.ts
+¦       ApiResponse.ts
+¦       asyncHandler.ts
+¦       callerScope.ts
+¦       constants.ts
+¦       jwt.ts
+¦       logger.ts
+¦       
++---validators
+        auth.validators.ts
+        branch.validators.ts
+        chemical.validators.ts
+        company.validators.ts
+        location.validators.ts
+        project.validators.ts
+        technician.validators.ts
+        

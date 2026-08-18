@@ -3,76 +3,116 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { AuthUser, UserRole } from "@/types/auth";
+import {
+  AuthUser,
+  UserRole,
+  USER_ROLE_LABELS,
+} from "@/types/auth";
 
 interface SidebarProps {
   user: AuthUser;
 }
 
-const NAV_ITEMS = [
+interface NavItem {
+  label: string;
+  href: string;
+  icon: string;
+  roles: UserRole[];
+}
+
+const ADMIN_ROLES = [
+  UserRole.SUPER_ADMIN,
+  UserRole.OFFICE_ADMIN,
+];
+
+const NAV_ITEMS: NavItem[] = [
   {
     label: "Dashboard",
     href: "/dashboard",
     icon: "⌂",
+    roles: ADMIN_ROLES,
   },
+
   {
     label: "Companies",
     href: "/dashboard/companies",
     icon: "▣",
+    roles: [UserRole.SUPER_ADMIN],
   },
+
   {
     label: "Projects",
     href: "/dashboard/projects",
     icon: "◆",
+    roles: ADMIN_ROLES,
   },
+
   {
     label: "Technicians",
     href: "/dashboard/technicians",
     icon: "◉",
+    roles: ADMIN_ROLES,
   },
+
   {
     label: "Technician Tracking",
     href: "/dashboard/tracking",
     icon: "⌖",
+    roles: ADMIN_ROLES,
   },
+
   {
     label: "Mileage Report",
     href: "/dashboard/mileage",
     icon: "▥",
+    roles: ADMIN_ROLES,
   },
+
   {
     label: "Inventory",
     href: "/dashboard/inventory",
     icon: "▤",
+    roles: ADMIN_ROLES,
   },
-  {
-    label: "Complaints",
-    href: "/dashboard/complaints",
-    icon: "✓",
-  },
+
   {
     label: "Reports",
     href: "/dashboard/reports",
     icon: "▰",
+    roles: ADMIN_ROLES,
   },
+
   {
     label: "Settings",
     href: "/dashboard/settings",
     icon: "⚙",
+    roles: ADMIN_ROLES,
   },
-] as const;
+];
 
 export function Sidebar({
   user,
 }: SidebarProps) {
   const pathname = usePathname();
+
   const [
     isMobileOpen,
     setIsMobileOpen,
   ] = useState(false);
 
+  const visibleItems = NAV_ITEMS.filter(
+    (item) => item.roles.includes(user.role)
+  );
+
+  const roleLabel =
+    USER_ROLE_LABELS[user.role];
+
+  const isDeveloper =
+    user.role === UserRole.SUPER_ADMIN;
+
   return (
     <>
+      {/* Mobile menu button */}
       <button
         type="button"
         onClick={() =>
@@ -87,6 +127,7 @@ export function Sidebar({
         </span>
       </button>
 
+      {/* Mobile backdrop */}
       {isMobileOpen && (
         <div
           className="fixed inset-0 z-40 bg-black/60 md:hidden"
@@ -107,6 +148,7 @@ export function Sidebar({
             : "-translate-x-full")
         }
       >
+        {/* Accent stripe */}
         <div
           className="h-1 w-full"
           style={{
@@ -116,6 +158,7 @@ export function Sidebar({
           aria-hidden="true"
         />
 
+        {/* Brand */}
         <div className="flex items-center justify-between px-5 py-6">
           <div>
             <p className="font-mono text-xs tracking-wide text-accent">
@@ -139,8 +182,26 @@ export function Sidebar({
           </button>
         </div>
 
+        {/* Role indicator */}
+        <div className="mx-3 mb-4 rounded-xl border border-border-default bg-surface-2 px-3 py-3">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-faint">
+            Access level
+          </p>
+
+          <p className="mt-1 text-sm font-semibold text-ink">
+            {roleLabel}
+          </p>
+
+          <p className="mt-1 text-xs text-ink-muted">
+            {isDeveloper
+              ? "Full system access"
+              : "Office & branch access"}
+          </p>
+        </div>
+
+        {/* Navigation */}
         <ul className="flex-1 space-y-1 px-3">
-          {NAV_ITEMS.map((item) => {
+          {visibleItems.map((item) => {
             const isActive =
               item.href === "/dashboard"
                 ? pathname === item.href
@@ -185,14 +246,18 @@ export function Sidebar({
           })}
         </ul>
 
-        <div className="border-t border-border-default px-5 py-4 text-xs text-ink-faint">
-          <p>Signed in as</p>
+        {/* Account footer */}
+        <div className="border-t border-border-default px-5 py-4 text-xs">
+          <p className="text-ink-faint">
+            Signed in as
+          </p>
 
           <p className="mt-0.5 font-medium text-ink-muted">
-            {user.role ===
-            UserRole.SUPER_ADMIN
-              ? "Super Admin"
-              : "Office Admin"}
+            {user.name}
+          </p>
+
+          <p className="mt-0.5 text-ink-faint">
+            {roleLabel}
           </p>
         </div>
       </nav>

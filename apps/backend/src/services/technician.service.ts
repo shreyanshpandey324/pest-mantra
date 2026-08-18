@@ -49,13 +49,24 @@ function companyFilter(
   };
 }
 
+function validateOdometer(
+  value: unknown,
+  fieldName: string
+): number {
+  if (
+    typeof value !== "number" ||
+    !Number.isFinite(value) ||
+    value < 0
+  ) {
+    throw ApiError.badRequest(
+      `${fieldName} must be a valid non-negative number`
+    );
+  }
+
+  return value;
+}
+
 export const technicianService = {
-  /**
-   * Admin-facing technician list.
-   *
-   * A company admin can ONLY see technicians
-   * belonging to their own company.
-   */
   async listTechnicians(
     scope: CallerScope
   ): Promise<TechnicianListItem[]> {
@@ -65,9 +76,7 @@ export const technicianService = {
       ...companyFilter(scope),
     };
 
-    const technicians = await User.find(
-      userFilter
-    );
+    const technicians = await User.find(userFilter);
 
     const profiles = await TechnicianProfile.find({
       userId: {
@@ -78,21 +87,19 @@ export const technicianService = {
       ...companyFilter(scope),
     });
 
-    const profileByUserId =
-      new Map(
-        profiles.map((profile) => [
-          profile.userId.toString(),
-          profile,
-        ])
-      );
+    const profileByUserId = new Map(
+      profiles.map((profile) => [
+        profile.userId.toString(),
+        profile,
+      ])
+    );
 
     const result: TechnicianListItem[] = [];
 
     for (const user of technicians) {
-      const profile =
-        profileByUserId.get(
-          user._id.toString()
-        );
+      const profile = profileByUserId.get(
+        user._id.toString()
+      );
 
       if (profile) {
         result.push({
@@ -105,37 +112,26 @@ export const technicianService = {
     return result;
   },
 
-  /**
-   * Get one technician.
-   *
-   * Company admins cannot access a technician
-   * belonging to another company.
-   */
   async getById(
     technicianId: string,
     scope: CallerScope
   ) {
-    const technicianObjectId =
-      validObjectId(
-        technicianId,
-        "Technician not found"
-      );
+    const technicianObjectId = validObjectId(
+      technicianId,
+      "Technician not found"
+    );
 
-    const userFilter: Record<
-      string,
-      unknown
-    > = {
+    const userFilter: Record<string, unknown> = {
       _id: technicianObjectId,
       role: UserRole.TECHNICIAN,
       ...companyFilter(scope),
     };
 
-    const user =
-      await User.findOne(
-        userFilter
-      ).select(
-        "-passwordHash -failedLoginAttempts -lockedUntil -tokenVersion"
-      );
+    const user = await User.findOne(
+      userFilter
+    ).select(
+      "-passwordHash -failedLoginAttempts -lockedUntil -tokenVersion"
+    );
 
     if (!user) {
       throw ApiError.notFound(
@@ -163,20 +159,10 @@ export const technicianService = {
       : null;
 
     const todayStart = new Date();
-    todayStart.setHours(
-      0,
-      0,
-      0,
-      0
-    );
+    todayStart.setHours(0, 0, 0, 0);
 
     const todayEnd = new Date();
-    todayEnd.setHours(
-      23,
-      59,
-      59,
-      999
-    );
+    todayEnd.setHours(23, 59, 59, 999);
 
     const projectCompanyFilter =
       companyFilter(scope);
@@ -186,8 +172,7 @@ export const technicianService = {
       totalCompletedJobs,
     ] = await Promise.all([
       Project.countDocuments({
-        assignedTechnicianId:
-          user._id,
+        assignedTechnicianId: user._id,
         scheduledDate: {
           $gte: todayStart,
           $lte: todayEnd,
@@ -196,10 +181,8 @@ export const technicianService = {
       }),
 
       Project.countDocuments({
-        assignedTechnicianId:
-          user._id,
-        status:
-          ProjectStatus.COMPLETED,
+        assignedTechnicianId: user._id,
+        status: ProjectStatus.COMPLETED,
         ...projectCompanyFilter,
       }),
     ]);
@@ -207,20 +190,12 @@ export const technicianService = {
     return {
       id: user._id.toString(),
       name: user.name,
-      employeeCode:
-        profile.employeeCode,
+      employeeCode: profile.employeeCode,
       phone: user.phone,
-      email:
-        user.email ?? null,
-
-      dutyStatus:
-        profile.currentDutyStatus,
-
-      vehicleNumber:
-        profile.vehicleNumber,
-
-      skills:
-        profile.skills,
+      email: user.email ?? null,
+      dutyStatus: profile.currentDutyStatus,
+      vehicleNumber: profile.vehicleNumber,
+      skills: profile.skills,
 
       branch: branch
         ? {
@@ -228,16 +203,12 @@ export const technicianService = {
             name: branch.name,
             city: branch.city,
             state: branch.state,
-            isActive:
-              branch.isActive,
+            isActive: branch.isActive,
           }
         : null,
 
-      createdAt:
-        user.createdAt,
-
-      isActive:
-        user.isActive,
+      createdAt: user.createdAt,
+      isActive: user.isActive,
 
       stats: {
         todayAssignedJobs,
@@ -246,21 +217,14 @@ export const technicianService = {
     };
   },
 
-  /**
-   * Technician's own profile.
-   *
-   * The userId comes from the verified JWT,
-   * never from client input.
-   */
   async getOwnProfile(
     userId: string,
     scope: CallerScope
   ): Promise<ITechnicianProfile> {
-    const userObjectId =
-      validObjectId(
-        userId,
-        "Invalid user id"
-      );
+    const userObjectId = validObjectId(
+      userId,
+      "Invalid user id"
+    );
 
     const profile =
       await TechnicianProfile.findOne({
@@ -277,36 +241,35 @@ export const technicianService = {
     return profile;
   },
 
-  /**
-   * Start duty.
-   */
   async startDuty(
     technicianId: string,
-    scope: CallerScope
+    scope: CallerScope,
+    odometerStartInput: unknown
   ): Promise<ITechnicianProfile> {
-    const technicianObjectId =
-      validObjectId(
-        technicianId,
-        "Invalid technician id"
-      );
+    const technicianObjectId = validObjectId(
+      technicianId,
+      "Invalid technician id"
+    );
+
+    const odometerStart = validateOdometer(
+      odometerStartInput,
+      "odometerStart"
+    );
 
     const now = new Date();
 
     const updated =
       await TechnicianProfile.findOneAndUpdate(
         {
-          userId:
-            technicianObjectId,
-          currentDutyStatus:
-            DutyStatus.OFF_DUTY,
+          userId: technicianObjectId,
+          currentDutyStatus: DutyStatus.OFF_DUTY,
           ...companyFilter(scope),
         },
         {
           $set: {
             currentDutyStatus:
               DutyStatus.ON_DUTY_IDLE,
-            lastStatusChangeAt:
-              now,
+            lastStatusChangeAt: now,
           },
         },
         {
@@ -317,8 +280,7 @@ export const technicianService = {
     if (!updated) {
       const exists =
         await TechnicianProfile.exists({
-          userId:
-            technicianObjectId,
+          userId: technicianObjectId,
           ...companyFilter(scope),
         });
 
@@ -333,34 +295,58 @@ export const technicianService = {
 
     await DutyLog.create({
       companyId: updated.companyId,
-      technicianId:
-        technicianObjectId,
+      technicianId: technicianObjectId,
       dutyStartAt: now,
+      odometerStart,
     });
 
     return updated;
   },
 
-  /**
-   * End duty.
-   */
   async endDuty(
     technicianId: string,
-    scope: CallerScope
+    scope: CallerScope,
+    odometerEndInput: unknown
   ): Promise<ITechnicianProfile> {
-    const technicianObjectId =
-      validObjectId(
-        technicianId,
-        "Invalid technician id"
+    const technicianObjectId = validObjectId(
+      technicianId,
+      "Invalid technician id"
+    );
+
+    const odometerEnd = validateOdometer(
+      odometerEndInput,
+      "odometerEnd"
+    );
+
+    const openLog =
+      await DutyLog.findOne({
+        technicianId: technicianObjectId,
+        dutyEndAt: {
+          $exists: false,
+        },
+        ...companyFilter(scope),
+      }).sort({
+        dutyStartAt: -1,
+      });
+
+    if (!openLog) {
+      throw ApiError.badRequest(
+        "No active duty log found"
       );
+    }
+
+    if (odometerEnd < openLog.odometerStart) {
+      throw ApiError.badRequest(
+        "Odometer end cannot be less than odometer start"
+      );
+    }
 
     const now = new Date();
 
     const updated =
       await TechnicianProfile.findOneAndUpdate(
         {
-          userId:
-            technicianObjectId,
+          userId: technicianObjectId,
           currentDutyStatus: {
             $ne: DutyStatus.OFF_DUTY,
           },
@@ -370,8 +356,7 @@ export const technicianService = {
           $set: {
             currentDutyStatus:
               DutyStatus.OFF_DUTY,
-            lastStatusChangeAt:
-              now,
+            lastStatusChangeAt: now,
           },
         },
         {
@@ -382,8 +367,7 @@ export const technicianService = {
     if (!updated) {
       const exists =
         await TechnicianProfile.exists({
-          userId:
-            technicianObjectId,
+          userId: technicianObjectId,
           ...companyFilter(scope),
         });
 
@@ -396,22 +380,12 @@ export const technicianService = {
           );
     }
 
-    const openLog =
-      await DutyLog.findOne({
-        technicianId:
-          technicianObjectId,
-        dutyEndAt: {
-          $exists: false,
-        },
-        ...companyFilter(scope),
-      }).sort({
-        dutyStartAt: -1,
-      });
+    openLog.dutyEndAt = now;
+    openLog.odometerEnd = odometerEnd;
+    openLog.distanceKm =
+      odometerEnd - openLog.odometerStart;
 
-    if (openLog) {
-      openLog.dutyEndAt = now;
-      await openLog.save();
-    }
+    await openLog.save();
 
     return updated;
   },

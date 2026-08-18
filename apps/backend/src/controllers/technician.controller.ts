@@ -11,8 +11,7 @@ export const technicianController = {
       req: AuthenticatedRequest,
       res: Response
     ) => {
-      const scope =
-        getCallerScope(req);
+      const scope = getCallerScope(req);
 
       const technicians =
         await technicianService.listTechnicians(
@@ -24,38 +23,24 @@ export const technicianController = {
         200,
         "Technicians",
         {
-          technicians:
-            technicians.map(
-              ({
-                user,
-                profile,
-              }) => ({
-                id: user._id,
-                name: user.name,
-                phone: user.phone,
-                email: user.email,
-                isActive:
-                  user.isActive,
-
-                companyId:
-                  user.companyId,
-
-                branchId:
-                  user.branchId,
-
-                employeeCode:
-                  profile.employeeCode,
-
-                vehicleNumber:
-                  profile.vehicleNumber,
-
-                skills:
-                  profile.skills,
-
-                dutyStatus:
-                  profile.currentDutyStatus,
-              })
-            ),
+          technicians: technicians.map(
+            ({ user, profile }) => ({
+              id: user._id,
+              name: user.name,
+              phone: user.phone,
+              email: user.email,
+              isActive: user.isActive,
+              companyId: user.companyId,
+              branchId: user.branchId,
+              employeeCode:
+                profile.employeeCode,
+              vehicleNumber:
+                profile.vehicleNumber,
+              skills: profile.skills,
+              dutyStatus:
+                profile.currentDutyStatus,
+            })
+          ),
         }
       );
     }
@@ -66,8 +51,7 @@ export const technicianController = {
       req: AuthenticatedRequest,
       res: Response
     ) => {
-      const scope =
-        getCallerScope(req);
+      const scope = getCallerScope(req);
 
       const technician =
         await technicianService.getById(
@@ -91,13 +75,13 @@ export const technicianController = {
       req: AuthenticatedRequest,
       res: Response
     ) => {
-      const scope =
-        getCallerScope(req);
+      const scope = getCallerScope(req);
 
       const profile =
         await technicianService.startDuty(
           scope.userId,
-          scope
+          scope,
+          req.body?.odometerStart
         );
 
       sendSuccess(
@@ -116,13 +100,13 @@ export const technicianController = {
       req: AuthenticatedRequest,
       res: Response
     ) => {
-      const scope =
-        getCallerScope(req);
+      const scope = getCallerScope(req);
 
       const profile =
         await technicianService.endDuty(
           scope.userId,
-          scope
+          scope,
+          req.body?.odometerEnd
         );
 
       sendSuccess(
@@ -141,8 +125,7 @@ export const technicianController = {
       req: AuthenticatedRequest,
       res: Response
     ) => {
-      const scope =
-        getCallerScope(req);
+      const scope = getCallerScope(req);
 
       const profile =
         await technicianService.getOwnProfile(

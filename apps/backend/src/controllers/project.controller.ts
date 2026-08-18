@@ -52,7 +52,7 @@ export const projectController = {
       const project =
         await projectService.createProject(
           input,
-          scope.userId
+          scope
         );
 
       sendSuccess(
