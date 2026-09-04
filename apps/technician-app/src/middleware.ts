@@ -17,6 +17,7 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
   const isAuthPage = pathname === "/login";
   const isProtectedRoute = pathname.startsWith("/jobs");
 
+
   if (!isProtectedRoute && !isAuthPage) {
     return NextResponse.next();
   }
@@ -73,6 +74,7 @@ async function attemptSilentRefresh(req: NextRequest): Promise<SilentRefreshResu
     const refreshResponse = await fetch(new URL("/api/auth/refresh", req.url), {
       method: "POST",
       headers: { cookie: req.headers.get("cookie") ?? "" },
+      signal: AbortSignal.timeout(10_000),
     });
 
     if (!refreshResponse.ok) return null;

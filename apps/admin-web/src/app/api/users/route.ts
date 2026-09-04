@@ -7,9 +7,43 @@ interface CreateUserBody {
   name: string;
   phone: string;
   email?: string;
-  password: string;
+  password?: string;
   role: UserRole;
   branchId?: string;
+  otpLoginEnabled?: boolean;
+}
+
+export async function GET(req: NextRequest): Promise<NextResponse> {
+  const token = requireAccessToken(req);
+  if (token instanceof NextResponse) return token;
+
+  try {
+    const data = await backendFetch<{ users: AuthUser[] }>("/users", {
+      accessToken: token,
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: "Users retrieved successfully",
+      data,
+    });
+  } catch (err) {
+    return NextResponse.json(
+      {
+        success: false,
+        message:
+          err instanceof BackendApiError
+            ? err.message
+            : "Unable to load users.",
+      },
+      {
+        status:
+          err instanceof BackendApiError
+            ? err.statusCode
+            : 502,
+      }
+    );
+  }
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -40,7 +74,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json(
       {
         success: true,
-        message: "Technician created successfully",
+        message: "User created successfully",
         data,
       },
       {
@@ -54,7 +88,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         message:
           err instanceof BackendApiError
             ? err.message
-            : "Unable to create technician.",
+            : "Unable to create user.",
         details:
           err instanceof BackendApiError
             ? err.details

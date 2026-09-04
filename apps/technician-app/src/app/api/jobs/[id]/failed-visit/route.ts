@@ -1,0 +1,4 @@
+import { NextRequest, NextResponse } from "next/server";
+import { backendFetch, BackendApiError } from "@/lib/backend-client";
+import { requireAccessToken } from "@/lib/require-token";
+export async function PATCH(req:NextRequest,{params}:{params:Promise<{id:string}>}){const token=requireAccessToken(req);if(token instanceof NextResponse)return token;const{id}=await params;const body=await req.json().catch(()=>null);if(!body)return NextResponse.json({success:false,message:"Invalid request body"},{status:400});try{return NextResponse.json({success:true,data:await backendFetch(`/projects/${id}/failed-visit`,{method:"PATCH",body,accessToken:token})});}catch(e){return NextResponse.json({success:false,message:e instanceof BackendApiError?e.message:"Could not record failed visit"},{status:e instanceof BackendApiError?e.statusCode:502});}}

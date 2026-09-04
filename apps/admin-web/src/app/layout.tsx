@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import "./globals.css";
+import { LanguageProvider } from "@/components/LanguageProvider";
 
 /**
  * Self-hosted via next/font/google instead of a manual <link> to
@@ -45,8 +46,8 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#0f1115",
-  colorScheme: "dark",
+  themeColor: "#17233f",
+  colorScheme: "dark light",
 };
 
 export default function RootLayout({
@@ -54,10 +55,18 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html
-      lang="en"
-      className={`${inter.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable}`}
-    >
-      <body className="min-h-dvh">{children}</body>
+  lang="en"
+  suppressHydrationWarning
+  className={`${inter.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable}`}
+>
+      <body className="min-h-dvh">
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var p=localStorage.getItem('pest-mantra-theme')||'light';var r=p==='system'?(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'):p;document.documentElement.dataset.theme=r;document.documentElement.dataset.themePreference=p;}catch(e){document.documentElement.dataset.theme='light';}})();`,
+          }}
+        />
+        <LanguageProvider>{children}</LanguageProvider>
+      </body>
     </html>
   );
 }

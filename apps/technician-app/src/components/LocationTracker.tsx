@@ -33,6 +33,41 @@ interface LocationPayload {
   accuracy?: number;
   speed?: number;
   heading?: number;
+  batteryLevel?: number;
+  isCharging?: boolean;
+}
+
+interface BatteryManagerLike {
+  level: number;
+  charging: boolean;
+}
+
+interface NavigatorWithBattery extends Navigator {
+  getBattery?: () => Promise<BatteryManagerLike>;
+}
+
+async function readBatteryStatus(): Promise<
+  Pick<LocationPayload, "batteryLevel" | "isCharging">
+> {
+  const batteryNavigator = navigator as NavigatorWithBattery;
+
+  if (!batteryNavigator.getBattery) {
+    return {};
+  }
+
+  try {
+    const battery = await batteryNavigator.getBattery();
+    const percentage = Math.round(
+      Math.min(1, Math.max(0, battery.level)) * 100
+    );
+
+    return {
+      batteryLevel: percentage,
+      isCharging: battery.charging,
+    };
+  } catch {
+    return {};
+  }
 }
 
 interface LocationUpdateResponse {
@@ -121,6 +156,14 @@ export function LocationTracker() {
         longitude,
         accuracy,
       };
+
+      const batteryStatus =
+        await readBatteryStatus();
+
+      Object.assign(
+        body,
+        batteryStatus
+      );
 
       if (
         speed !== null &&
@@ -249,8 +292,13 @@ export function LocationTracker() {
           "permission_denied"
         );
 
+        const siteName =
+          typeof window !== "undefined"
+            ? window.location.host
+            : "this site";
+
         setMessage(
-          "Location permission is blocked. Allow location access for localhost:3001 and then click Retry Location."
+          `Location permission is blocked. Allow location access for ${siteName} and then click Retry Location.`
         );
 
         return;

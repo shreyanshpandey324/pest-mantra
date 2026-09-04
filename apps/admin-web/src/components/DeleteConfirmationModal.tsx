@@ -6,6 +6,8 @@ interface DeleteConfirmationModalProps {
   title?: string;
   message?: string;
   isDeleting?: boolean;
+  actionLabel?: string;
+  pendingActionLabel?: string;
   onCancel: () => void;
   onConfirm: () => void;
 }
@@ -14,12 +16,14 @@ export function DeleteConfirmationModal({
   title = "Delete Technician",
   message = "Are you sure you want to delete this technician? This action cannot be undone.",
   isDeleting = false,
+  actionLabel = "Delete",
+  pendingActionLabel = "Deleting...",
   onCancel,
   onConfirm,
 }: DeleteConfirmationModalProps) {
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center pm-modal-backdrop p-4"
       onClick={onCancel}
     >
       <div
@@ -48,7 +52,7 @@ export function DeleteConfirmationModal({
             disabled={isDeleting}
             className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60"
           >
-            {isDeleting ? "Deleting..." : "Delete"}
+            {isDeleting ? pendingActionLabel : actionLabel}
           </button>
         </div>
       </div>

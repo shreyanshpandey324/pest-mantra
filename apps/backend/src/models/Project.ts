@@ -6,7 +6,7 @@ import {
 } from "mongoose";
 
 import {
-  PHONE_REGEX,
+  CUSTOMER_PHONE_REGEX,
 } from "../utils/constants";
 
 export enum ProjectStatus {
@@ -37,6 +37,21 @@ export enum PaymentMethod {
   ADVANCE = "advance",
 }
 
+export enum ProjectPriority {
+  NORMAL = "normal",
+  HIGH = "high",
+  URGENT = "urgent",
+}
+
+export enum FailedVisitReason {
+  CUSTOMER_UNAVAILABLE = "customer_unavailable",
+  SITE_LOCKED = "site_locked",
+  WRONG_ADDRESS = "wrong_address",
+  MATERIAL_UNAVAILABLE = "material_unavailable",
+  SAFETY_RISK = "safety_risk",
+  OTHER = "other",
+}
+
 export interface IProject
   extends Document {
   _id: Types.ObjectId;
@@ -54,6 +69,14 @@ export interface IProject
 
   serviceType: ServiceType;
 
+  priority: ProjectPriority;
+
+  siteLocation?: {
+    latitude: number;
+    longitude: number;
+    capturedAt?: Date;
+  };
+
   status: ProjectStatus;
 
   assignedTechnicianId?: Types.ObjectId;
@@ -61,6 +84,9 @@ export interface IProject
   assignedBy?: Types.ObjectId;
 
   assignedAt?: Date;
+
+  assignmentAcknowledgedAt?: Date;
+  assignmentAcknowledgedBy?: Types.ObjectId;
 
   scheduledDate?: Date;
 
@@ -73,6 +99,19 @@ export interface IProject
   notes?: string;
 
   completedAt?: Date;
+
+  customerConfirmedAt?: Date;
+
+  rescheduleRequestedAt?: Date;
+  rescheduleReason?: string;
+  rescheduleSuggestedDate?: Date;
+  rescheduleSuggestedTimeSlot?: string;
+  rescheduleRequestedBy?: Types.ObjectId;
+
+  failedVisitAt?: Date;
+  failedVisitReason?: FailedVisitReason;
+  failedVisitNotes?: string;
+  failedVisitBy?: Types.ObjectId;
 
   createdAt: Date;
 
@@ -124,10 +163,10 @@ const projectSchema =
           validator: (
             value: string
           ) =>
-            PHONE_REGEX.test(value),
+            CUSTOMER_PHONE_REGEX.test(value),
 
           message:
-            "Phone must be a valid 10-digit Indian mobile number",
+            "Enter a valid customer phone number",
         },
       },
 
@@ -147,6 +186,19 @@ const projectSchema =
           ServiceType
         ),
         required: true,
+      },
+
+      priority: {
+        type: String,
+        enum: Object.values(ProjectPriority),
+        default: ProjectPriority.NORMAL,
+        index: true,
+      },
+
+      siteLocation: {
+        latitude: { type: Number, min: -90, max: 90 },
+        longitude: { type: Number, min: -180, max: 180 },
+        capturedAt: { type: Date },
       },
 
       status: {
@@ -172,6 +224,16 @@ const projectSchema =
 
       assignedAt: {
         type: Date,
+      },
+
+      assignmentAcknowledgedAt: {
+        type: Date,
+        index: true,
+      },
+
+      assignmentAcknowledgedBy: {
+        type: Schema.Types.ObjectId,
+        ref: "User",
       },
 
       scheduledDate: {
@@ -209,6 +271,21 @@ const projectSchema =
         type: Date,
         index: true,
       },
+
+      customerConfirmedAt: {
+        type: Date,
+      },
+
+      rescheduleRequestedAt: { type: Date, index: true },
+      rescheduleReason: { type: String, trim: true, maxlength: 500 },
+      rescheduleSuggestedDate: { type: Date },
+      rescheduleSuggestedTimeSlot: { type: String, trim: true, maxlength: 100 },
+      rescheduleRequestedBy: { type: Schema.Types.ObjectId, ref: "User" },
+
+      failedVisitAt: { type: Date, index: true },
+      failedVisitReason: { type: String, enum: Object.values(FailedVisitReason) },
+      failedVisitNotes: { type: String, trim: true, maxlength: 500 },
+      failedVisitBy: { type: Schema.Types.ObjectId, ref: "User" },
     },
     {
       timestamps: true,
@@ -227,6 +304,7 @@ projectSchema.index({
   companyId: 1,
   branchId: 1,
   status: 1,
+  priority: 1,
   scheduledDate: 1,
 });
 

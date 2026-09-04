@@ -24,7 +24,7 @@ export const technicianController = {
         "Technicians",
         {
           technicians: technicians.map(
-            ({ user, profile }) => ({
+            ({ user, profile, performance }) => ({
               id: user._id,
               name: user.name,
               phone: user.phone,
@@ -39,6 +39,14 @@ export const technicianController = {
               skills: profile.skills,
               dutyStatus:
                 profile.currentDutyStatus,
+              lastKnownLocation: profile.lastKnownLocation
+                ? {
+                    latitude: profile.lastKnownLocation.lat,
+                    longitude: profile.lastKnownLocation.lng,
+                    recordedAt: profile.lastKnownLocation.at,
+                  }
+                : undefined,
+              performance,
             })
           ),
         }

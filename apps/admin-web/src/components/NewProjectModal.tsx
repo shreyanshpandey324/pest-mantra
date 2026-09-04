@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { ServiceType, SERVICE_TYPE_LABELS, Project } from "@/types/project";
+import { ServiceType, SERVICE_TYPE_LABELS, Project, ProjectPriority, PRIORITY_LABELS } from "@/types/project";
 import { ui } from "@/lib/ui-classes";
 
 interface NewProjectModalProps {
@@ -19,6 +19,9 @@ export function NewProjectModal({ onClose, onCreated }: NewProjectModalProps) {
   const [customerPhone, setCustomerPhone] = useState("");
   const [address, setAddress] = useState("");
   const [serviceType, setServiceType] = useState<ServiceType>(ServiceType.COCKROACH);
+  const [priority, setPriority] = useState<ProjectPriority>(ProjectPriority.NORMAL);
+  const [siteLatitude, setSiteLatitude] = useState("");
+  const [siteLongitude, setSiteLongitude] = useState("");
   const [notes, setNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -104,6 +107,11 @@ export function NewProjectModal({ onClose, onCreated }: NewProjectModalProps) {
           customerPhone: customerPhone.trim(),
           address: address.trim(),
           serviceType,
+          priority,
+          siteLocation:
+            siteLatitude.trim() && siteLongitude.trim()
+              ? { latitude: Number(siteLatitude), longitude: Number(siteLongitude) }
+              : undefined,
           notes: notes.trim() || undefined,
         }),
       });
@@ -125,7 +133,7 @@ export function NewProjectModal({ onClose, onCreated }: NewProjectModalProps) {
       role="dialog"
       aria-modal="true"
       aria-labelledby="new-project-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center pm-modal-backdrop p-4"
       onClick={onClose}
     >
       <div
@@ -271,6 +279,22 @@ export function NewProjectModal({ onClose, onCreated }: NewProjectModalProps) {
                   ))}
                 </select>
               </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className={ui.label} htmlFor="priority">Priority</label>
+                <select id="priority" className={ui.input} value={priority} onChange={(e) => setPriority(e.target.value as ProjectPriority)}>
+                  {Object.values(ProjectPriority).map((value) => <option key={value} value={value}>{PRIORITY_LABELS[value]}</option>)}
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className={ui.label}>Site GPS (optional)</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <input className={ui.input} inputMode="decimal" placeholder="Latitude" value={siteLatitude} onChange={(e) => setSiteLatitude(e.target.value)} />
+                  <input className={ui.input} inputMode="decimal" placeholder="Longitude" value={siteLongitude} onChange={(e) => setSiteLongitude(e.target.value)} />
+                </div>
+                <p className="text-[10px] text-ink-faint">Enables distance/ETA-aware Smart Dispatch when technician GPS is available.</p>
+              </div>
             </div>
           )}
 
@@ -301,6 +325,10 @@ export function NewProjectModal({ onClose, onCreated }: NewProjectModalProps) {
                 <div>
                   <p className="text-[11px] uppercase tracking-[0.24em] text-ink-faint">Service type</p>
                   <p className="mt-1 font-medium text-ink">{SERVICE_TYPE_LABELS[serviceType]}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.24em] text-ink-faint">Priority</p>
+                  <p className="mt-1 font-medium text-ink">{PRIORITY_LABELS[priority]}</p>
                 </div>
               </div>
 

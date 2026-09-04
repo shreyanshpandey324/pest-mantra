@@ -1,0 +1,7 @@
+export type ExpenseCategory = "fuel" | "chemical" | "technician_allowance" | "travel" | "equipment" | "vehicle_maintenance" | "office" | "utilities" | "marketing" | "other";
+export type ExpenseStatus = "pending" | "approved" | "rejected" | "paid";
+export type ExpensePaymentMethod = "cash" | "upi" | "card" | "bank_transfer" | "cheque" | "other";
+export interface ExpenseClaim { _id:string; expenseNumber:string; category:ExpenseCategory; amount:number; expenseDate:string; description:string; vendor?:string; paymentMethod?:ExpensePaymentMethod; paymentReference?:string; projectId?: string | { _id:string; projectCode:string; customerName:string; serviceType:string }; status:ExpenseStatus; approvalNote?:string; receiptOriginalName?:string; notes?:string; createdAt:string; updatedAt:string; }
+export const CATEGORY_LABELS: Record<ExpenseCategory,string> = { fuel:"Fuel", chemical:"Chemicals", technician_allowance:"Allowance", travel:"Travel", equipment:"Equipment", vehicle_maintenance:"Vehicle Maintenance", office:"Office", utilities:"Utilities", marketing:"Marketing", other:"Other" };
+export const STATUS_LABELS: Record<ExpenseStatus,string> = { pending:"Pending Approval", approved:"Approved", rejected:"Rejected", paid:"Paid" };
+export const PAYMENT_LABELS: Record<ExpensePaymentMethod,string> = { cash:"Cash", upi:"UPI", card:"Card", bank_transfer:"Bank Transfer", cheque:"Cheque", other:"Other" };

@@ -152,7 +152,7 @@ export default function TechnicianProfilePage({ params }: TechnicianProfilePageP
       const json = await response.json();
 
       if (!response.ok || !json.success) {
-        throw new Error(json.message ?? "Unable to delete technician.");
+        throw new Error(json.message ?? "Unable to deactivate technician.");
       }
 
       router.push("/dashboard/technicians");
@@ -293,7 +293,7 @@ export default function TechnicianProfilePage({ params }: TechnicianProfilePageP
               Edit Technician
             </button>
             <button className={ui.btnGhost} type="button" onClick={() => setConfirmingDelete(true)}>
-              Delete Technician
+              Deactivate Technician
             </button>
           </div>
         </div>
@@ -325,9 +325,11 @@ export default function TechnicianProfilePage({ params }: TechnicianProfilePageP
 
       {confirmingDelete && (
         <DeleteConfirmationModal
-          title="Delete Technician"
-          message={`Are you sure you want to delete "${technician.name}"? This action cannot be undone.`}
+          title="Deactivate Technician"
+          message={`Deactivate "${technician.name}"? They will be signed out and removed from active assignments, while completed-job history stays intact.`}
           isDeleting={isDeleting}
+          actionLabel="Deactivate"
+          pendingActionLabel="Deactivating..."
           onCancel={() => setConfirmingDelete(false)}
           onConfirm={handleConfirmDelete}
         />

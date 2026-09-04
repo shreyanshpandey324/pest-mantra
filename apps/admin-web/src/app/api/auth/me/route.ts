@@ -4,6 +4,7 @@ import { ACCESS_COOKIE_NAME } from "@/lib/session";
 import { AuthUser } from "@/types/auth";
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
+
   const accessToken = req.cookies.get(ACCESS_COOKIE_NAME)?.value;
 
   if (!accessToken) {

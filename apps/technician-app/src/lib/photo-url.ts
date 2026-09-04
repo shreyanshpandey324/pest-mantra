@@ -1,13 +1,32 @@
 /**
- * Photo URLs come back from the backend as a path relative to its
- * own origin (e.g. "/uploads/169...-abc.jpg" — see Module 2's
- * photo.controller.ts). This app runs on a different origin/port,
- * so an <img src> using that path as-is would 404 against this
- * app's own server instead. NEXT_PUBLIC_BACKEND_ORIGIN is safe to
- * expose to the browser (just a base URL, not a secret) — this is
- * the one place it's used.
+ * Backend photo records return an authenticated API path such as
+ * /api/v1/projects/:projectId/photos/:photoId. Browsers cannot attach
+ * the technician app's httpOnly JWT cookie as a Bearer token to a
+ * direct backend <img> request, so convert that path to our same-origin
+ * BFF photo route. The BFF injects the access token server-side.
  */
-export function toAbsolutePhotoUrl(relativeUrl: string): string {
-  const origin = process.env.NEXT_PUBLIC_BACKEND_ORIGIN ?? "http://localhost:4000";
-  return `${origin}${relativeUrl}`;
+export function toAbsolutePhotoUrl(fileUrl: string): string {
+  const secureMatch = fileUrl.match(
+    /^\/api\/v1\/projects\/([^/]+)\/photos\/([^/?#]+)$/
+  );
+
+  if (secureMatch) {
+    const [, projectId, photoId] = secureMatch;
+    return `/api/jobs/${encodeURIComponent(projectId)}/photos/${encodeURIComponent(photoId)}`;
+  }
+
+  // Backward compatibility for older records that stored /uploads/... .
+  // In production the backend origin must be explicit; silently pointing a
+  // deployed app at localhost makes legacy photos look randomly broken.
+  if (fileUrl.startsWith("/uploads/")) {
+    const origin = process.env.NEXT_PUBLIC_BACKEND_ORIGIN?.replace(/\/$/, "");
+
+    if (!origin) {
+      return fileUrl;
+    }
+
+    return `${origin}${fileUrl}`;
+  }
+
+  return fileUrl;
 }

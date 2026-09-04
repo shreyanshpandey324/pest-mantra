@@ -2,9 +2,11 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import { ACCESS_COOKIE_NAME } from "@/lib/session";
 import { backendFetch, BackendApiError } from "@/lib/backend-client";
-import { Project, STATUS_LABELS, SERVICE_TYPE_LABELS, ProjectStatusHistoryEntry } from "@/types/project";
+import { Project, STATUS_LABELS, SERVICE_TYPE_LABELS, ProjectStatusHistoryEntry, PRIORITY_LABELS, ProjectPriority } from "@/types/project";
 import { ProjectWithAssignedTechnicians } from "@/types/tracking";
 import { ui } from "@/lib/ui-classes";
+import { Chemical, ProjectChemicalUsage, UNIT_LABELS } from "@/types/inventory";
+import { CustomerPortalAccessCard } from "@/components/CustomerPortalAccessCard";
 
 interface ProjectDetailsPageProps {
   params: Promise<{ id: string }>;
@@ -17,25 +19,29 @@ export default async function ProjectDetailsPage({ params }: ProjectDetailsPageP
 
   let project: (Project & ProjectWithAssignedTechnicians) | null = null;
   let history: ProjectStatusHistoryEntry[] = [];
+  let chemicals: Chemical[] = [];
+  let chemicalUsage: ProjectChemicalUsage[] = [];
+  let hasServiceReport = false;
   let loadError: string | null = null;
 
   try {
-    const [projectData, historyData] = await Promise.all([
+    const [projectResult, historyResult, chemicalsResult, usageResult, reportResult] = await Promise.allSettled([
       backendFetch<{
         project: Project & ProjectWithAssignedTechnicians;
-      }>(`/projects/${id}`, {
-        accessToken,
-      }),
-
-      backendFetch<{
-        history: ProjectStatusHistoryEntry[];
-      }>(`/projects/${id}/history`, {
-        accessToken,
-      }),
+      }>(`/projects/${id}`, { accessToken }),
+      backendFetch<{ history: ProjectStatusHistoryEntry[] }>(`/projects/${id}/history`, { accessToken }),
+      backendFetch<{ chemicals: Chemical[] }>("/chemicals", { accessToken }),
+      backendFetch<{ usage: ProjectChemicalUsage[] }>(`/chemicals/usage/project/${id}`, { accessToken }),
+      backendFetch(`/service-reports/project/${id}`, { accessToken }),
     ]);
 
-    project = projectData.project;
-    history = historyData.history;
+    if (projectResult.status === "rejected") throw projectResult.reason;
+    if (historyResult.status === "rejected") throw historyResult.reason;
+    project = projectResult.value.project;
+    history = historyResult.value.history;
+    if (chemicalsResult.status === "fulfilled") chemicals = chemicalsResult.value.chemicals ?? [];
+    if (usageResult.status === "fulfilled") chemicalUsage = usageResult.value.usage ?? [];
+    hasServiceReport = reportResult.status === "fulfilled";
   } catch (err) {
     loadError =
       err instanceof BackendApiError
@@ -83,12 +89,20 @@ export default async function ProjectDetailsPage({ params }: ProjectDetailsPageP
             <span className={`rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] ${statusCardClass}`}>
               {STATUS_LABELS[project.status]}
             </span>
+            {project.priority && project.priority !== ProjectPriority.NORMAL ? <span className={`rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${project.priority === ProjectPriority.URGENT ? "border-danger/40 bg-danger/10 text-danger" : "border-warning/40 bg-warning/10 text-warning"}`}>{PRIORITY_LABELS[project.priority]}</span> : null}
           </div>
           <p className="mt-2 font-mono text-xs text-ink-faint">{project.projectCode}</p>
         </div>
-        <div className="rounded-2xl border border-border-default/70 bg-surface px-4 py-3 text-sm text-ink-muted">
-          <p className="font-medium text-ink">Service request</p>
-          <p className="mt-1 font-mono text-xs text-ink-faint">{SERVICE_TYPE_LABELS[project.serviceType]}</p>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          {hasServiceReport && (
+            <Link href={`/dashboard/projects/${id}/service-report`} className="inline-flex h-11 items-center justify-center rounded-xl bg-accent px-4 text-sm font-semibold text-accent-ink transition hover:bg-accent-hover">
+              View Service Report
+            </Link>
+          )}
+          <div className="rounded-2xl border border-border-default/70 bg-surface px-4 py-3 text-sm text-ink-muted">
+            <p className="font-medium text-ink">Service request</p>
+            <p className="mt-1 font-mono text-xs text-ink-faint">{SERVICE_TYPE_LABELS[project.serviceType]}</p>
+          </div>
         </div>
       </div>
 
@@ -132,12 +146,34 @@ export default async function ProjectDetailsPage({ params }: ProjectDetailsPageP
                 <p className="text-[11px] uppercase tracking-[0.24em] text-ink-faint">Address</p>
                 <p className="mt-2 font-medium text-ink">{project.address}</p>
               </div>
+              {project.siteLocation ? <div className="rounded-2xl border border-accent/20 bg-accent/5 p-4 md:col-span-2"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-[11px] uppercase tracking-[0.24em] text-accent">Registered service coordinates</p><p className="mt-2 font-mono text-sm text-ink">{project.siteLocation.latitude.toFixed(5)}, {project.siteLocation.longitude.toFixed(5)}</p><p className="mt-1 text-xs text-ink-muted">Used for distance/ETA-aware Smart Dispatch and proof-of-service context.</p></div><a className="rounded-xl border border-accent/30 px-3 py-2 text-xs font-semibold text-accent" target="_blank" rel="noreferrer" href={`https://www.google.com/maps/search/?api=1&query=${project.siteLocation.latitude},${project.siteLocation.longitude}`}>Open map ↗</a></div></div> : null}
               {project.notes && (
                 <div className="rounded-2xl border border-border-default/70 bg-surface p-4 md:col-span-2">
                   <p className="text-[11px] uppercase tracking-[0.24em] text-ink-faint">Notes</p>
                   <p className="mt-2 text-sm leading-6 text-ink-muted">{project.notes}</p>
                 </div>
               )}
+            </div>
+          </div>
+
+          <CustomerPortalAccessCard
+            projectId={id}
+            customerName={project.customerName}
+            customerPhone={project.customerPhone}
+          />
+
+          <div className={`${ui.card} overflow-hidden border border-border-default/70`}>
+            <div className="border-b border-border-default bg-surface-2/60 px-5 py-4">
+              <div className="flex items-center justify-between gap-3">
+                <div><h2 className="text-sm font-semibold text-ink">Chemical usage</h2><p className="mt-1 text-xs text-ink-faint">Actual treatment quantities logged from the technician workflow.</p></div>
+                <span className="rounded-full border border-success/20 bg-success/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-success">{chemicalUsage.length} entries</span>
+              </div>
+            </div>
+            <div className="p-5">
+              {chemicalUsage.length === 0 ? <p className="text-sm text-ink-muted">No chemical usage has been logged for this project yet.</p> : <div className="space-y-2">{chemicalUsage.map((usage) => {
+                const chemical = chemicals.find((item) => item._id === usage.chemicalId);
+                return <div key={usage._id} className="flex items-center justify-between gap-3 rounded-xl border border-border-default bg-surface-2 p-3"><div><p className="text-sm font-medium">{chemical?.name ?? "Chemical"}</p><p className="mt-0.5 text-xs text-ink-faint">{new Date(usage.loggedAt).toLocaleString("en-IN")}</p></div><span className="font-mono text-sm text-success">{usage.quantityUsed} {chemical ? UNIT_LABELS[chemical.unit] : ""}</span></div>;
+              })}</div>}
             </div>
           </div>
 
@@ -160,6 +196,10 @@ export default async function ProjectDetailsPage({ params }: ProjectDetailsPageP
                       {project.assignedTechnicianId.email}
                     </p>
                   )}
+                  <div className={`mt-3 rounded-lg border px-3 py-2 text-xs ${project.assignmentAcknowledgedAt ? "border-success/25 bg-success/5 text-success" : project.priority === ProjectPriority.URGENT ? "border-danger/30 bg-danger/5 text-danger" : "border-warning/30 bg-warning/5 text-warning"}`}>
+                    <span className="font-semibold">{project.assignmentAcknowledgedAt ? "✓ Technician acknowledged" : "● Acknowledgement pending"}</span>
+                    <span className="mt-0.5 block opacity-80">{project.assignmentAcknowledgedAt ? new Date(project.assignmentAcknowledgedAt).toLocaleString("en-IN") : `${PRIORITY_LABELS[project.priority ?? ProjectPriority.NORMAL]} alert policy active`}</span>
+                  </div>
                 </div>
               ) : (
                 <p className="text-sm text-ink-muted">No technician has been assigned yet.</p>

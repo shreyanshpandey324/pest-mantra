@@ -8,6 +8,7 @@ export function LogoutButton() {
   const router = useRouter();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
+
   async function handleLogout() {
     setIsLoggingOut(true);
     try {

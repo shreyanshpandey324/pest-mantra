@@ -20,6 +20,7 @@ export interface IUser extends Document {
   role: UserRole;
   branchId?: Types.ObjectId;
   isActive: boolean;
+  otpLoginEnabled: boolean;
   failedLoginAttempts: number;
   lockedUntil?: Date;
   tokenVersion: number;
@@ -89,6 +90,12 @@ const userSchema = new Schema<IUser>(
     isActive: {
       type: Boolean,
       default: true,
+    },
+
+    otpLoginEnabled: {
+      type: Boolean,
+      default: false,
+      index: true,
     },
 
     failedLoginAttempts: {

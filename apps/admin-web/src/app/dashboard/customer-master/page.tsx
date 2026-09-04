@@ -1,0 +1,5 @@
+import { cookies } from "next/headers";
+import { CustomerMasterClient, CustomerMasterItem } from "@/components/CustomerMasterClient";
+import { backendFetch } from "@/lib/backend-client";
+import { ACCESS_COOKIE_NAME } from "@/lib/session";
+export default async function CustomerMasterPage(){const token=(await cookies()).get(ACCESS_COOKIE_NAME)?.value;const data=await backendFetch<{customers:CustomerMasterItem[];metrics:{total:number;active:number;enterprise:number;multiSite:number}}>("/customers-master",{accessToken:token});return <div className="space-y-6"><header><p className="font-mono text-xs uppercase tracking-[0.2em] text-accent">Enterprise customer layer</p><h1 className="mt-1 text-3xl font-semibold">Customer Master & Sites</h1><p className="mt-2 max-w-3xl text-sm text-ink-muted">Permanent customer records for residential, commercial and multi-site enterprise accounts. Customer 360 continues to show transactional history.</p></header><CustomerMasterClient initialCustomers={data.customers??[]} metrics={data.metrics}/></div>}

@@ -9,7 +9,7 @@ interface TechnicianProfileDrawerProps {
 }
 
 const DUTY_COLORS: Record<TechnicianListItem["dutyStatus"], string> = {
-  off_duty: "bg-gray-500",
+  off_duty: "bg-ink-faint",
   on_duty_idle: "bg-green-500",
   en_route: "bg-blue-500",
   on_site: "bg-indigo-500",
@@ -32,7 +32,7 @@ export function TechnicianProfileDrawer({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/50"
+      className="fixed inset-0 z-50 pm-modal-backdrop"
       onClick={onClose}
     >
       <div
@@ -54,7 +54,7 @@ export function TechnicianProfileDrawer({
 
         <div className="space-y-6 p-6">
           <div className="flex flex-col items-center">
-            <div className="flex h-24 w-24 items-center justify-center rounded-full bg-accent text-3xl font-bold text-white">
+            <div className="flex h-24 w-24 items-center justify-center rounded-full bg-accent text-3xl font-bold text-accent-ink">
               {technician.name.charAt(0).toUpperCase()}
             </div>
 

@@ -4,9 +4,10 @@ node_modules/
 .pnp.js
 
 # Environment files — never commit real secrets
-.env
-.env.local
-.env.*.local
+*firebase-adminsdk*.json
+*service-account*.json
+.env*
+!**/.env.example
 
 # Build outputs
 dist/
@@ -19,6 +20,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 *.log
+
+# Runtime uploads (use a persistent disk or object storage in production)
+apps/backend/uploads/
 
 # Editor/OS
 .DS_Store

@@ -1,4 +1,6 @@
 import mongoose from "mongoose";
+import { randomBytes } from "crypto";
+import { RefreshToken } from "../models/RefreshToken";
 
 import {
   User,
@@ -8,11 +10,19 @@ import {
 
 import {
   TechnicianProfile,
+  DutyStatus,
 } from "../models/TechnicianProfile";
+
+import {
+  Project,
+  ProjectStatus,
+} from "../models/Project";
 
 import {
   Branch,
 } from "../models/Branch";
+
+import { Company } from "../models/Company";
 
 import {
   ApiError,
@@ -20,6 +30,8 @@ import {
 
 import {
   CreateUserInput,
+  OtpAccessInput,
+  ResetUserPasswordInput,
   UpdateUserInput,
 } from "../validators/auth.validators";
 
@@ -106,6 +118,8 @@ async function resolveCompanyFromBranch(
 /**
  * Check whether a target user belongs
  * to the caller's company.
+ *
+ * Super Admin can access all companies.
  */
 function assertSameCompany(
   targetUser: IUser,
@@ -127,6 +141,43 @@ function assertSameCompany(
     throw ApiError.forbidden(
       "You cannot access a user belonging to another company"
     );
+  }
+}
+
+/**
+ * Check whether the target user belongs
+ * to the caller's branch.
+ *
+ * Super Admin can manage any branch.
+ *
+ * Office Admin can only manage users
+ * belonging to their own branch.
+ */
+function assertSameBranch(
+  targetUser: IUser,
+  scope: CallerScope
+): void {
+  if (
+    scope.role ===
+    UserRole.SUPER_ADMIN
+  ) {
+    return;
+  }
+
+  if (
+    scope.role ===
+    UserRole.OFFICE_ADMIN
+  ) {
+    if (
+      !scope.branchId ||
+      !targetUser.branchId ||
+      targetUser.branchId.toString() !==
+        scope.branchId
+    ) {
+      throw ApiError.forbidden(
+        "You can only access users belonging to your own branch"
+      );
+    }
   }
 }
 
@@ -176,6 +227,33 @@ function assertCanManageRole(
 }
 
 export const userService = {
+  /**
+   * List staff visible to the caller.
+   *
+   * Super Admin sees every account, including other Super Admins, so OTP
+   * access can be audited centrally. Office Admin sees technicians from
+   * their own company + branch only.
+   */
+  async listUsers(scope: CallerScope): Promise<IUser[]> {
+    if (scope.role === UserRole.SUPER_ADMIN) {
+      return User.find({}).sort({ role: 1, name: 1 });
+    }
+
+    if (scope.role === UserRole.OFFICE_ADMIN) {
+      if (!scope.companyId || !scope.branchId) {
+        throw ApiError.forbidden("Office admin is not assigned to a company and branch");
+      }
+
+      return User.find({
+        role: UserRole.TECHNICIAN,
+        companyId: scope.companyId,
+        branchId: scope.branchId,
+      }).sort({ name: 1 });
+    }
+
+    throw ApiError.forbidden("You do not have permission to list users");
+  },
+
   /**
    * Create a staff account.
    *
@@ -231,14 +309,17 @@ export const userService = {
       }
 
       /*
-       * For Office Admin, the branch must
-       * belong to the authenticated company.
+       * Resolve and validate the target branch.
        *
-       * For Super Admin, any valid active
-       * company branch may be selected.
+       * Super Admin:
+       * - Can select any active branch.
+       *
+       * Office Admin:
+       * - Branch must belong to their own company.
+       * - Branch must be their own assigned branch.
        */
-      companyId =
-        await resolveCompanyFromBranch(
+      const validatedBranch =
+        await getValidatedBranch(
           input.branchId,
           scope.role ===
             UserRole.SUPER_ADMIN
@@ -246,10 +327,41 @@ export const userService = {
             : scope.companyId
         );
 
+      if (
+        scope.role ===
+        UserRole.OFFICE_ADMIN
+      ) {
+        if (!scope.branchId) {
+          throw ApiError.forbidden(
+            "Office admin is not assigned to a branch"
+          );
+        }
+
+        if (
+          validatedBranch._id.toString() !==
+          scope.branchId
+        ) {
+          throw ApiError.forbidden(
+            "You can only manage users in your own branch"
+          );
+        }
+      }
+
+      companyId =
+        validatedBranch.companyId;
+
       branchId =
-        new mongoose.Types.ObjectId(
-          input.branchId
-        );
+        validatedBranch._id;
+
+      if (input.role === UserRole.TECHNICIAN && companyId) {
+        const company = await Company.findById(companyId);
+        if (!company) throw ApiError.badRequest("Company not found");
+        const technicianCount = await User.countDocuments({ companyId, role: UserRole.TECHNICIAN, isActive: true });
+        const technicianLimit = company.limits?.technicians ?? 5;
+        if (company.subscriptionPlan !== "enterprise" && technicianCount >= technicianLimit) {
+          throw ApiError.forbidden(`Technician limit reached for the ${company.subscriptionPlan} plan (${technicianLimit}). Upgrade the plan or increase its limit.`);
+        }
+      }
     }
 
     /*
@@ -260,11 +372,18 @@ export const userService = {
         name: input.name,
         phone: input.phone,
         email: input.email,
-        passwordHash: input.password,
+        // Office Admins receive the password chosen by the Super Admin.
+        // Technicians can continue using the field-app OTP flow, so a random
+        // internal credential is kept when no password is supplied.
+        passwordHash: input.password ?? randomBytes(32).toString("base64url"),
         role: input.role,
         companyId,
         branchId,
         isActive: true,
+        otpLoginEnabled:
+          scope.role === UserRole.SUPER_ADMIN
+            ? Boolean(input.otpLoginEnabled)
+            : false,
       });
 
     /*
@@ -293,7 +412,103 @@ export const userService = {
   },
 
   /**
+   * Super Admin can set/reset an Office Admin password. This also revokes
+   * existing refresh sessions so the new credential becomes authoritative.
+   */
+  async resetOfficeAdminPassword(
+    userId: string,
+    input: ResetUserPasswordInput,
+    scope: CallerScope
+  ): Promise<void> {
+    if (scope.role !== UserRole.SUPER_ADMIN) {
+      throw ApiError.forbidden("Only a Super Admin can reset admin passwords");
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      throw ApiError.badRequest("Invalid user id");
+    }
+
+    const user = await User.findById(userId).select("+passwordHash +tokenVersion +failedLoginAttempts +lockedUntil");
+    if (!user) {
+      throw ApiError.notFound("User not found");
+    }
+
+    if (user.role !== UserRole.OFFICE_ADMIN) {
+      throw ApiError.badRequest("Password reset here is only available for Office Admin accounts");
+    }
+
+    user.passwordHash = input.password;
+    user.tokenVersion = (user.tokenVersion ?? 0) + 1;
+    user.failedLoginAttempts = 0;
+    user.lockedUntil = undefined;
+    await user.save();
+
+    await RefreshToken.updateMany(
+      { userId: user._id, revokedAt: { $exists: false } },
+      { $set: { revokedAt: new Date() } }
+    );
+  },
+
+  /**
+   * Super-Admin-only OTP whitelist control. This is intentionally separate
+   * from the general user update endpoint so Office Admins cannot silently
+   * grant login access to newly-created accounts.
+   */
+  async setOtpAccess(
+    userId: string,
+    input: OtpAccessInput,
+    scope: CallerScope
+  ): Promise<IUser> {
+    if (scope.role !== UserRole.SUPER_ADMIN) {
+      throw ApiError.forbidden("Only a Super Admin can change OTP login access");
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      throw ApiError.badRequest("Invalid user id");
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      throw ApiError.notFound("User not found");
+    }
+
+    if (input.enabled && !user.isActive) {
+      throw ApiError.badRequest("Activate this account before enabling OTP login");
+    }
+
+    if (!input.enabled && user.role === UserRole.SUPER_ADMIN && user.otpLoginEnabled) {
+      const otherEnabledSuperAdmins = await User.countDocuments({
+        _id: { $ne: user._id },
+        role: UserRole.SUPER_ADMIN,
+        isActive: true,
+        otpLoginEnabled: true,
+      });
+
+      if (otherEnabledSuperAdmins === 0) {
+        throw ApiError.badRequest(
+          "At least one active Super Admin must keep OTP login enabled"
+        );
+      }
+    }
+
+    user.otpLoginEnabled = input.enabled;
+    await user.save();
+    return user;
+  },
+
+  /**
    * Update a user.
+   *
+   * Super Admin:
+   * - can update Office Admin
+   * - can update Technician
+   * - can manage any company/branch
+   *
+   * Office Admin:
+   * - can update Technician only
+   * - technician must belong to own company
+   * - technician must belong to own branch
+   * - technician cannot be moved to another branch
    */
   async updateUser(
     userId: string,
@@ -334,7 +549,16 @@ export const userService = {
       );
     }
 
+    /*
+     * Office Admin must belong to
+     * the same company AND branch.
+     */
     assertSameCompany(
+      user,
+      scope
+    );
+
+    assertSameBranch(
       user,
       scope
     );
@@ -386,10 +610,33 @@ export const userService = {
       | undefined;
 
     /*
-     * Branch changes are validated against
-     * the caller's company.
+     * Branch changes are validated.
      */
     if (input.branchId) {
+      /*
+       * Office Admin:
+       * The new branch MUST be their own branch.
+       */
+      if (
+        scope.role ===
+        UserRole.OFFICE_ADMIN
+      ) {
+        if (!scope.branchId) {
+          throw ApiError.forbidden(
+            "Office admin is not assigned to a branch"
+          );
+        }
+
+        if (
+          input.branchId !==
+          scope.branchId
+        ) {
+          throw ApiError.forbidden(
+            "You can only assign users to your own branch"
+          );
+        }
+      }
+
       const newCompanyId =
         await resolveCompanyFromBranch(
           input.branchId,
@@ -407,16 +654,15 @@ export const userService = {
       /*
        * Existing company must remain
        * consistent with the new branch.
+       *
+       * Only Super Admin can move a user
+       * between companies.
        */
       if (
         user.companyId &&
         user.companyId.toString() !==
           newCompanyId.toString()
       ) {
-        /*
-         * Only Super Admin can move a user
-         * between companies.
-         */
         if (
           scope.role !==
           UserRole.SUPER_ADMIN
@@ -542,7 +788,17 @@ export const userService = {
   },
 
   /**
-   * Delete a user.
+   * Deactivate a user without destroying historical business records.
+   *
+   * Super Admin:
+   * - can deactivate Office Admin
+   * - can deactivate Technician
+   * - can manage any company/branch
+   *
+   * Office Admin:
+   * - can deactivate Technician only
+   * - technician must belong to own company
+   * - technician must belong to own branch
    */
   async deleteUser(
     userId: string,
@@ -561,7 +817,7 @@ export const userService = {
     const user =
       await User.findById(
         userId
-      );
+      ).select("+tokenVersion");
 
     if (!user) {
       throw ApiError.notFound(
@@ -574,11 +830,21 @@ export const userService = {
       UserRole.SUPER_ADMIN
     ) {
       throw ApiError.forbidden(
-        "Super admin accounts cannot be deleted through this endpoint"
+        "Super admin accounts cannot be deactivated through this endpoint"
       );
     }
 
+    /*
+     * Office Admin must only be able
+     * to deactivate technicians from their
+     * own company and own branch.
+     */
     assertSameCompany(
+      user,
+      scope
+    );
+
+    assertSameBranch(
       user,
       scope
     );
@@ -589,20 +855,60 @@ export const userService = {
     );
 
     /*
-     * Delete technician profile first.
+     * Do not strand an active customer job on an account that can no longer
+     * sign in. The admin must reassign or cancel those jobs first.
      */
     if (
       user.role ===
       UserRole.TECHNICIAN
     ) {
-      await TechnicianProfile.deleteOne({
-        userId: user._id,
+      const activeAssignment = await Project.exists({
+        assignedTechnicianId: user._id,
+        status: {
+          $nin: [
+            ProjectStatus.COMPLETED,
+            ProjectStatus.CANCELLED,
+          ],
+        },
       });
+
+      if (activeAssignment) {
+        throw ApiError.conflict(
+          "Reassign or cancel this technician's active jobs before deactivating the account"
+        );
+      }
     }
 
-    await User.deleteOne({
-      _id: user._id,
-    });
+    user.isActive = false;
+    user.otpLoginEnabled = false;
+    user.tokenVersion =
+      (user.tokenVersion ?? 0) + 1;
+
+    await user.save();
+
+    await Promise.all([
+      RefreshToken.updateMany(
+        {
+          userId: user._id,
+          revokedAt: { $exists: false },
+        },
+        { $set: { revokedAt: new Date() } }
+      ),
+      user.role === UserRole.TECHNICIAN
+        ? TechnicianProfile.updateOne(
+            { userId: user._id },
+            {
+              $set: {
+                currentDutyStatus: DutyStatus.OFF_DUTY,
+                lastStatusChangeAt: new Date(),
+              },
+              $unset: {
+                lastKnownLocation: 1,
+              },
+            }
+          )
+        : Promise.resolve(),
+    ]);
   },
 };
 

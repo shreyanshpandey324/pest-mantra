@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { BACKEND_API_URL } from "@/lib/backend-client";
+import { BACKEND_API_URL, backendRequestSignal } from "@/lib/backend-client";
 import { requireAccessToken } from "@/lib/require-token";
 
 /**
@@ -53,6 +53,7 @@ export async function POST(
       headers: { Authorization: `Bearer ${token}` },
       body: outgoing,
       cache: "no-store",
+      signal: backendRequestSignal(45_000),
     });
 
     const json = await backendRes.json().catch(() => null);

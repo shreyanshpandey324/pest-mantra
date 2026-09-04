@@ -4,6 +4,8 @@ import {
   ServiceType,
   ProjectStatus,
   PaymentMethod,
+  ProjectPriority,
+  FailedVisitReason,
 } from "../models/Project";
 
 import {
@@ -11,7 +13,7 @@ import {
 } from "../models/ProjectPhoto";
 
 import {
-  PHONE_REGEX,
+  CUSTOMER_PHONE_REGEX,
 } from "../utils/constants";
 
 /*
@@ -69,8 +71,8 @@ export const createProjectSchema =
       .string()
       .trim()
       .regex(
-        PHONE_REGEX,
-        "Enter a valid 10-digit Indian mobile number"
+        CUSTOMER_PHONE_REGEX,
+        "Enter a valid customer phone number"
       ),
 
     address: z
@@ -89,6 +91,14 @@ export const createProjectSchema =
       z.nativeEnum(
         ServiceType
       ),
+
+    priority: z.nativeEnum(ProjectPriority).optional(),
+
+    siteLocation: z.object({
+      latitude: z.number().min(-90).max(90),
+      longitude: z.number().min(-180).max(180),
+      capturedAt: validDateString.optional(),
+    }).optional(),
 
     companyId: z
       .string()
@@ -145,6 +155,8 @@ export const assignProjectSchema =
         100,
         "scheduledTimeSlot cannot exceed 100 characters"
       ),
+
+    priority: z.nativeEnum(ProjectPriority).optional(),
   });
 
 export type AssignProjectInput =
@@ -221,6 +233,9 @@ export const updateStatusSchema =
       z.nativeEnum(
         PaymentMethod
       ).optional(),
+
+    customerConfirmed:
+      z.boolean().optional(),
   });
 
 export type UpdateStatusInput =
@@ -240,6 +255,12 @@ export const listProjectsQuerySchema =
       z.nativeEnum(
         ProjectStatus
       ).optional(),
+
+    search: z
+      .string()
+      .trim()
+      .max(120)
+      .optional(),
 
     date: z
       .string()
@@ -269,6 +290,32 @@ export type ListProjectsQuery =
   z.infer<
     typeof listProjectsQuerySchema
   >;
+
+
+/*
+|--------------------------------------------------------------------------
+| Zero-Chaos field exception workflows
+|--------------------------------------------------------------------------
+*/
+
+export const rescheduleProjectSchema = z.object({
+  reason: z.string().trim().min(3).max(500),
+  suggestedDate: validDateString.optional(),
+  suggestedTimeSlot: z.string().trim().min(1).max(100).optional(),
+});
+export type RescheduleProjectInput = z.infer<typeof rescheduleProjectSchema>;
+
+export const failedVisitSchema = z.object({
+  reason: z.nativeEnum(FailedVisitReason),
+  notes: z.string().trim().max(500).optional(),
+});
+export type FailedVisitInput = z.infer<typeof failedVisitSchema>;
+
+export const reassignProjectSchema = z.object({
+  technicianId: z.string().trim().min(1),
+  reason: z.string().trim().min(3).max(500),
+});
+export type ReassignProjectInput = z.infer<typeof reassignProjectSchema>;
 
 /*
 |--------------------------------------------------------------------------

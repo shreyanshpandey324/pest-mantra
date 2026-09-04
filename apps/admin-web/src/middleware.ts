@@ -26,6 +26,7 @@ import { ADMIN_WEB_ROLES } from "@/types/auth";
  */
 export async function middleware(req: NextRequest): Promise<NextResponse> {
   const { pathname } = req.nextUrl;
+
   const isAuthPage = pathname === "/login";
   const isProtectedRoute = pathname.startsWith("/dashboard");
 
@@ -85,6 +86,7 @@ async function attemptSilentRefresh(req: NextRequest): Promise<SilentRefreshResu
     const refreshResponse = await fetch(new URL("/api/auth/refresh", req.url), {
       method: "POST",
       headers: { cookie: req.headers.get("cookie") ?? "" },
+      signal: AbortSignal.timeout(10_000),
     });
 
     if (!refreshResponse.ok) return null;

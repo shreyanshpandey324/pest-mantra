@@ -19,9 +19,14 @@ import {
 import {
   globalRateLimiter,
 } from "./middleware/rateLimit.middleware";
+import { auditMutationMiddleware } from "./middleware/audit.middleware";
+import mongoose from "mongoose";
+import { requestContextMiddleware } from "./middleware/requestContext.middleware";
 
 export function createApp(): Application {
   const app = express();
+
+  app.use(requestContextMiddleware);
 
   /*
   |--------------------------------------------------------------------------
@@ -129,17 +134,31 @@ export function createApp(): Application {
       res.status(200).json({
         success: true,
         message: "OK",
-        uptime:
-          process.uptime(),
+        mode: "real",
+        uptime: process.uptime(),
+        timestamp: new Date().toISOString(),
       });
     }
   );
+
+  app.get("/ready", (_req, res) => {
+    const databaseReady = mongoose.connection.readyState === 1;
+    res.status(databaseReady ? 200 : 503).json({
+      success: databaseReady,
+      message: databaseReady ? "READY" : "DATABASE_NOT_READY",
+      mode: "real",
+      database: mongoose.connection.readyState === 1 ? "connected" : "disconnected",
+      timestamp: new Date().toISOString(),
+    });
+  });
 
   /*
   |--------------------------------------------------------------------------
   | API
   |--------------------------------------------------------------------------
   */
+  app.use(auditMutationMiddleware);
+
   app.use(
     "/api/v1",
     apiRoutes

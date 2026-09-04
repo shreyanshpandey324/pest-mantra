@@ -21,6 +21,8 @@ export interface AuthUser {
 
   isActive: boolean;
 
+  otpLoginEnabled: boolean;
+
   lastLoginAt?: string;
 
   createdAt: string;

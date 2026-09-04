@@ -4,14 +4,7 @@ import { backendFetch, BackendApiError } from "@/lib/backend-client";
 import { MileageLogEntry } from "@/types/tracking";
 import { ui } from "@/lib/ui-classes";
 
-/**
- * ⚠️ Backed by GET /mileage/report — path and response shape
- * (`{ logs: MileageLogEntry[] }`) taken from
- * MODULE_3_TECHNICIAN_TRACKING.md, never verified against real
- * backend source. Same warning as tracking/page.tsx — fix field
- * names in src/types/tracking.ts and
- * src/app/api/mileage/report/route.ts if they differ.
- */
+/** Real mileage report backed by GET /mileage/report. */
 export default async function MileageReportPage() {
   const cookieStore = await cookies();
   const accessToken = cookieStore.get(ACCESS_COOKIE_NAME)?.value;
@@ -28,7 +21,7 @@ export default async function MileageReportPage() {
     loadError =
       err instanceof BackendApiError
         ? err.message
-        : "Could not reach /mileage/report. Confirm this endpoint exists and matches the path in MODULE_3_TECHNICIAN_TRACKING.md.";
+        : "Could not load the mileage report.";
   }
 
   const totalDistance = logs.reduce((sum, log) => sum + (log.distanceKm ?? 0), 0);
@@ -38,7 +31,6 @@ export default async function MileageReportPage() {
     <div>
       <div className="mb-5 flex items-center justify-between">
         <h1 className="text-[22px]">Mileage Report</h1>
-        <span className={ui.badge}>UNVERIFIED ENDPOINT</span>
       </div>
 
       {loadError && (

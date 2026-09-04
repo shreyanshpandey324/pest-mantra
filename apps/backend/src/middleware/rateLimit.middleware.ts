@@ -17,6 +17,33 @@ export const loginRateLimiter = rateLimit({
   },
 });
 
+/**
+ * OTP eligibility is called immediately before Firebase sends an SMS.
+ * Keep the limit deliberately low to reduce SMS abuse/cost exposure.
+ */
+export const otpRequestRateLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: "Too many OTP requests. Please wait a few minutes before requesting another code.",
+  },
+});
+
+/** OTP code verification can be a little more permissive than SMS sending. */
+export const otpVerifyRateLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  limit: 15,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: "Too many OTP verification attempts. Please wait a few minutes and try again.",
+  },
+});
+
 export const globalRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 300,

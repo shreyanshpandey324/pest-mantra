@@ -1,0 +1,31 @@
+PEST MANTRA — REFERENCE-INSPIRED UI + ZERO-CHAOS
+
+WHAT CHANGED
+- Modern split-screen Admin login
+- White expandable sidebar + dark enterprise top bar
+- Dashboard Quick Actions + Today + Fix Now layout
+- Cleaner forms/cards/tables through shared design tokens
+- Technician mobile UI refreshed and simplified
+- Existing Zero-Chaos workflows preserved
+
+WHAT DID NOT CHANGE
+- Backend APIs
+- MongoDB models/data
+- Authentication rules
+- Roles/permissions
+- Existing business logic
+
+REAL MODE RUN
+1. Configure real environment (if not already configured):
+   node scripts/setup-real.mjs
+2. Seed staff:
+   npm run seed:staff
+3. Start:
+   node scripts/run-real.mjs
+
+Admin: http://localhost:3000/login
+Technician: http://localhost:3001/login
+Backend: http://localhost:4000
+
+SECURITY
+Do not add .env / .env.local / Firebase private JSON files to a handover ZIP.

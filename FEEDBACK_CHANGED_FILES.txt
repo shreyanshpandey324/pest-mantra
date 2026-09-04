@@ -1,0 +1,26 @@
+Customer Feedback & Ratings — exact changed/new files
+
+NEW
+apps/backend/src/models/Feedback.ts
+apps/backend/src/validators/feedback.validators.ts
+apps/backend/src/services/feedback.service.ts
+apps/backend/src/controllers/feedback.controller.ts
+apps/backend/src/routes/feedback.routes.ts
+apps/admin-web/src/types/feedback.ts
+apps/admin-web/src/components/FeedbackForm.tsx
+apps/admin-web/src/components/FeedbackDashboard.tsx
+apps/admin-web/src/app/feedback/[code]/page.tsx
+apps/admin-web/src/app/api/feedback/public/[code]/route.ts
+apps/admin-web/src/app/dashboard/feedback/page.tsx
+FEEDBACK_MODULE.md
+FEEDBACK_CHANGED_FILES.txt
+
+MODIFIED
+apps/backend/src/routes/index.ts
+apps/admin-web/src/components/Sidebar.tsx
+apps/admin-web/src/app/verify/service/[code]/page.tsx
+README.md
+docs/FINAL_STATUS.md
+
+GENERATED/REBUILT BY BACKEND BUILD
+apps/backend/dist/** (includes new Feedback model/service/controller/routes/validators and updated routes/index output)

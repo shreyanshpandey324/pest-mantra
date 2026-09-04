@@ -77,6 +77,14 @@ function assertSuperAdmin(
   }
 }
 
+
+function limitsForPlan(plan: string): { technicians: number; branches: number } {
+  if (plan === "growth") return { technicians: 20, branches: 5 };
+  if (plan === "pro") return { technicians: 60, branches: 20 };
+  if (plan === "enterprise") return { technicians: 100000, branches: 100000 };
+  return { technicians: 5, branches: 1 };
+}
+
 export const companyService = {
   /*
    * ------------------------------------------------------------
@@ -176,6 +184,17 @@ export const companyService = {
       status:
         CompanyStatus.PENDING,
       isActive: false,
+      subscriptionPlan: input.subscriptionPlan,
+      billingCurrency: input.billingCurrency,
+      timezone: input.timezone,
+      countryCode: input.countryCode?.toUpperCase(),
+      locale: input.locale,
+      taxLabel: input.taxLabel,
+      defaultTaxRate: input.defaultTaxRate,
+      distanceUnit: input.distanceUnit,
+      dateFormat: input.dateFormat,
+      limits: limitsForPlan(input.subscriptionPlan ?? "starter"),
+      trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
     });
   },
 
@@ -236,6 +255,17 @@ export const companyService = {
       company.email =
         input.email;
     }
+
+    if (input.subscriptionPlan !== undefined) { company.subscriptionPlan = input.subscriptionPlan; company.limits = limitsForPlan(input.subscriptionPlan); }
+    if (input.subscriptionStatus !== undefined) company.subscriptionStatus = input.subscriptionStatus;
+    if (input.billingCurrency !== undefined) company.billingCurrency = input.billingCurrency.toUpperCase();
+    if (input.timezone !== undefined) company.timezone = input.timezone;
+    if (input.countryCode !== undefined) company.countryCode = input.countryCode.toUpperCase();
+    if (input.locale !== undefined) company.locale = input.locale;
+    if (input.taxLabel !== undefined) company.taxLabel = input.taxLabel;
+    if (input.defaultTaxRate !== undefined) company.defaultTaxRate = input.defaultTaxRate;
+    if (input.distanceUnit !== undefined) company.distanceUnit = input.distanceUnit;
+    if (input.dateFormat !== undefined) company.dateFormat = input.dateFormat;
 
     if (
       input.status !== undefined
@@ -473,6 +503,12 @@ export const companyService = {
       throw ApiError.badRequest(
         "Cannot create a branch for an inactive company"
       );
+    }
+
+    const branchCount = await Branch.countDocuments({ companyId, isActive: true });
+    const branchLimit = company.limits?.branches ?? 1;
+    if (company.subscriptionPlan !== "enterprise" && branchCount >= branchLimit) {
+      throw ApiError.forbidden(`Branch limit reached for the ${company.subscriptionPlan} plan (${branchLimit}). Upgrade the company plan or increase its limit.`);
     }
 
     const existing =

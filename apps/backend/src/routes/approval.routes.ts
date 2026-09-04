@@ -1,0 +1,12 @@
+import { Router } from "express";
+import { approvalController } from "../controllers/approval.controller";
+import { authenticate, requireRole } from "../middleware/auth.middleware";
+import { validateBody } from "../middleware/validate.middleware";
+import { UserRole } from "../models/User";
+import { createApprovalSchema, resolveApprovalSchema } from "../validators/approval.validators";
+const router = Router();
+router.use(authenticate, requireRole(UserRole.SUPER_ADMIN, UserRole.OFFICE_ADMIN));
+router.get("/", approvalController.list);
+router.post("/", validateBody(createApprovalSchema), approvalController.create);
+router.patch("/:id/resolve", validateBody(resolveApprovalSchema), approvalController.resolve);
+export default router;

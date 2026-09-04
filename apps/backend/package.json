@@ -10,7 +10,11 @@
     "start": "node dist/server.js",
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc --noEmit",
-    "seed:superadmin": "tsx src/scripts/seedSuperAdmin.ts"
+    "seed:superadmin": "tsx src/scripts/seedSuperAdmin.ts",
+    "seed:technicians": "tsx src/scripts/seedTechnicians.ts",
+    "otp:bootstrap": "tsx src/scripts/bootstrapOtpAccess.ts",
+    "seed:staff": "tsx src/scripts/seedInitialStaff.ts",
+    "test": "npm run build && node --test dist/tests/*.test.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -19,6 +23,7 @@
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "express-rate-limit": "^7.2.0",
+    "firebase-admin": "^14.3.0",
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.4.1",
@@ -40,6 +45,6 @@
     "typescript": "^5.4.5"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=24.20.0 <25"
   }
 }

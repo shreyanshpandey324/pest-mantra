@@ -15,12 +15,21 @@ import {
   Project,
   ProjectStatus,
 } from "../models/Project";
+import { Feedback } from "../models/Feedback";
+
 import { ApiError } from "../utils/ApiError";
 import { CallerScope } from "../utils/callerScope";
 
 export interface TechnicianListItem {
   user: IUser;
   profile: ITechnicianProfile;
+  performance: {
+    todayAssignedJobs: number;
+    completedToday: number;
+    totalCompletedJobs: number;
+    averageRating?: number;
+    distanceTodayKm: number;
+  };
 }
 
 function validObjectId(
@@ -74,6 +83,7 @@ export const technicianService = {
       role: UserRole.TECHNICIAN,
       isActive: true,
       ...companyFilter(scope),
+      ...(scope.role === UserRole.OFFICE_ADMIN && scope.branchId ? { branchId: validObjectId(scope.branchId, "Invalid branch id") } : {}),
     };
 
     const technicians = await User.find(userFilter);
@@ -85,6 +95,7 @@ export const technicianService = {
         ),
       },
       ...companyFilter(scope),
+      ...(scope.role === UserRole.OFFICE_ADMIN && scope.branchId ? { branchId: validObjectId(scope.branchId, "Invalid branch id") } : {}),
     });
 
     const profileByUserId = new Map(
@@ -94,19 +105,55 @@ export const technicianService = {
       ])
     );
 
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+    const technicianIds = technicians.map((technician) => technician._id);
+    const scopeCompany = companyFilter(scope);
+    const scopedBranch = scope.role === UserRole.OFFICE_ADMIN && scope.branchId ? { branchId: validObjectId(scope.branchId, "Invalid branch id") } : {};
+
+    const [todayJobs, totalCompleted, ratings, mileage] = await Promise.all([
+      Project.aggregate([
+        { $match: { assignedTechnicianId: { $in: technicianIds }, scheduledDate: { $gte: todayStart, $lte: todayEnd }, ...scopeCompany, ...scopedBranch } },
+        { $group: { _id: "$assignedTechnicianId", assigned: { $sum: 1 }, completed: { $sum: { $cond: [{ $eq: ["$status", ProjectStatus.COMPLETED] }, 1, 0] } } } },
+      ]),
+      Project.aggregate([
+        { $match: { assignedTechnicianId: { $in: technicianIds }, status: ProjectStatus.COMPLETED, ...scopeCompany, ...scopedBranch } },
+        { $group: { _id: "$assignedTechnicianId", count: { $sum: 1 } } },
+      ]),
+      Feedback.aggregate([
+        { $match: { technicianId: { $in: technicianIds }, ...scopeCompany, ...scopedBranch } },
+        { $group: { _id: "$technicianId", average: { $avg: "$rating" } } },
+      ]),
+      DutyLog.aggregate([
+        { $match: { technicianId: { $in: technicianIds }, dutyStartAt: { $gte: todayStart, $lte: todayEnd }, ...scopeCompany } },
+        { $group: { _id: "$technicianId", distance: { $sum: { $ifNull: ["$distanceKm", 0] } } } },
+      ]),
+    ]);
+
+    const todayMap = new Map(todayJobs.map((row: any) => [row._id.toString(), row]));
+    const completedMap = new Map(totalCompleted.map((row: any) => [row._id.toString(), row.count as number]));
+    const ratingMap = new Map(ratings.map((row: any) => [row._id.toString(), Number(row.average)]));
+    const mileageMap = new Map(mileage.map((row: any) => [row._id.toString(), Number(row.distance)]));
+
     const result: TechnicianListItem[] = [];
-
     for (const user of technicians) {
-      const profile = profileByUserId.get(
-        user._id.toString()
-      );
-
-      if (profile) {
-        result.push({
-          user,
-          profile,
-        });
-      }
+      const profile = profileByUserId.get(user._id.toString());
+      if (!profile) continue;
+      const key = user._id.toString();
+      const today = todayMap.get(key) as any;
+      result.push({
+        user,
+        profile,
+        performance: {
+          todayAssignedJobs: Number(today?.assigned ?? 0),
+          completedToday: Number(today?.completed ?? 0),
+          totalCompletedJobs: Number(completedMap.get(key) ?? 0),
+          averageRating: ratingMap.has(key) ? Number(ratingMap.get(key)?.toFixed(1)) : undefined,
+          distanceTodayKm: Number((mileageMap.get(key) ?? 0).toFixed(1)),
+        },
+      });
     }
 
     return result;

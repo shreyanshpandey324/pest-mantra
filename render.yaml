@@ -1,0 +1,108 @@
+previews:
+  generation: manual
+  expireAfterDays: 3
+
+envVarGroups:
+  - name: pest-mantra-shared-auth
+    envVars:
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+
+services:
+  - type: web
+    name: pest-mantra-api
+    runtime: node
+    region: singapore
+    plan: 0.5c-512mb
+    buildCommand: npm ci --include=dev --no-audit --no-fund && npm run build:backend
+    startCommand: npm run start --workspace=@pest-mantra/backend
+    autoDeployTrigger: checksPass
+    healthCheckPath: /ready
+    maxShutdownDelaySeconds: 30
+    buildFilter:
+      paths:
+        - .node-version
+        - package.json
+        - package-lock.json
+        - apps/backend/**
+        - render.yaml
+    disk:
+      name: pest-mantra-uploads
+      mountPath: /opt/render/project/src/apps/backend/uploads
+      sizeGB: 1
+    envVars:
+      - fromGroup: pest-mantra-shared-auth
+      - key: NODE_ENV
+        value: "production"
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: CORS_ORIGINS
+        sync: false
+      - key: UPLOAD_DIR
+        value: /opt/render/project/src/apps/backend/uploads
+      - key: BACKGROUND_JOBS_ENABLED
+        value: "true"
+      - key: BACKGROUND_JOB_INTERVAL_MINUTES
+        value: "15"
+      - key: COMMUNICATION_PROVIDER
+        value: "disabled"
+      - key: COMMUNICATION_MAX_ATTEMPTS
+        value: "3"
+
+  - type: web
+    name: pest-mantra-admin
+    runtime: node
+    region: singapore
+    plan: 0.5c-512mb
+    buildCommand: npm ci --include=dev --no-audit --no-fund && npm run build:web
+    startCommand: npm run start --workspace=@pest-mantra/admin-web -- --hostname 0.0.0.0
+    autoDeployTrigger: checksPass
+    healthCheckPath: /api/health
+    buildFilter:
+      paths:
+        - .node-version
+        - package.json
+        - package-lock.json
+        - apps/admin-web/**
+        - render.yaml
+    envVars:
+      - fromGroup: pest-mantra-shared-auth
+      - key: NODE_ENV
+        value: "production"
+      - key: BACKEND_INTERNAL_HOSTPORT
+        fromService:
+          type: web
+          name: pest-mantra-api
+          property: hostport
+      - key: BACKEND_REQUEST_TIMEOUT_MS
+        value: "15000"
+
+  - type: web
+    name: pest-mantra-technician
+    runtime: node
+    region: singapore
+    plan: 0.5c-512mb
+    buildCommand: npm ci --include=dev --no-audit --no-fund && npm run build:technician
+    startCommand: npm run start --workspace=@pest-mantra/technician-app -- --hostname 0.0.0.0
+    autoDeployTrigger: checksPass
+    healthCheckPath: /api/health
+    buildFilter:
+      paths:
+        - .node-version
+        - package.json
+        - package-lock.json
+        - apps/technician-app/**
+        - render.yaml
+    envVars:
+      - fromGroup: pest-mantra-shared-auth
+      - key: NODE_ENV
+        value: "production"
+      - key: BACKEND_INTERNAL_HOSTPORT
+        fromService:
+          type: web
+          name: pest-mantra-api
+          property: hostport
+      - key: BACKEND_REQUEST_TIMEOUT_MS
+        value: "15000"

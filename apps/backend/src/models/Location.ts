@@ -67,12 +67,12 @@ const LocationSchema = new Schema<ILocation>(
 
     batteryLevel: {
       type: Number,
-      default: 100,
+      min: 0,
+      max: 100,
     },
 
     isCharging: {
       type: Boolean,
-      default: false,
     },
 
     recordedAt: {

@@ -46,14 +46,26 @@ export interface Job {
   customerPhone: string;
   address: string;
   serviceType: ServiceType;
+  priority?: "normal" | "high" | "urgent";
+  siteLocation?: { latitude: number; longitude: number; capturedAt?: string };
   status: JobStatus;
   assignedTechnicianId?: string;
+  assignedAt?: string;
+  assignmentAcknowledgedAt?: string;
+  assignmentAcknowledgedBy?: string;
   scheduledDate?: string;
   scheduledTimeSlot?: string;
   paymentMethod?: PaymentMethod;
   notes?: string;
   completedAt?: string;
   createdAt: string;
+  rescheduleRequestedAt?: string;
+  rescheduleReason?: string;
+  rescheduleSuggestedDate?: string;
+  rescheduleSuggestedTimeSlot?: string;
+  failedVisitAt?: string;
+  failedVisitReason?: "customer_unavailable"|"site_locked"|"wrong_address"|"material_unavailable"|"safety_risk"|"other";
+  failedVisitNotes?: string;
   updatedAt: string;
 }
 

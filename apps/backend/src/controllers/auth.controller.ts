@@ -3,9 +3,14 @@ import { asyncHandler } from "../utils/asyncHandler";
 import { sendSuccess } from "../utils/ApiResponse";
 import { ApiError } from "../utils/ApiError";
 import { authService } from "../services/auth.service";
-import { LoginInput } from "../validators/auth.validators";
+import {
+  LoginInput,
+  OtpEligibilityInput,
+  OtpVerifyInput,
+} from "../validators/auth.validators";
 import { AuthenticatedRequest } from "../middleware/auth.middleware";
 import { env } from "../config/env";
+import { verifyFirebasePhoneIdToken } from "../utils/firebaseToken";
 
 /**
  * Refresh tokens are read from an httpOnly cookie when present
@@ -38,6 +43,44 @@ function extractRefreshToken(req: Request): string | undefined {
 }
 
 export const authController = {
+  demoLogin: asyncHandler(async (req, res: Response) => {
+    if (env.isProduction) {
+      throw ApiError.notFound("Not found");
+    }
+
+    const { user, tokens } = await authService.loginDemoTechnician(req);
+    res.cookie(REFRESH_COOKIE_NAME, tokens.refreshToken, getRefreshCookieOptions());
+
+    sendSuccess(res, 200, "Demo login successful", {
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      user: user.toJSON(),
+    });
+  }),
+
+  otpEligibility: asyncHandler(async (req, res: Response) => {
+    const { phone, audience } = req.body as OtpEligibilityInput;
+    await authService.assertOtpEligibility(phone, audience);
+
+    sendSuccess(res, 200, "Phone number is approved for OTP login", {
+      eligible: true,
+    });
+  }),
+
+  otpVerify: asyncHandler(async (req, res: Response) => {
+    const { idToken, audience } = req.body as OtpVerifyInput;
+    const { phone } = await verifyFirebasePhoneIdToken(idToken);
+    const { user, tokens } = await authService.loginWithOtp(phone, audience, req);
+
+    res.cookie(REFRESH_COOKIE_NAME, tokens.refreshToken, getRefreshCookieOptions());
+
+    sendSuccess(res, 200, "Login successful", {
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      user: user.toJSON(),
+    });
+  }),
+
   login: asyncHandler(async (req, res: Response) => {
     const { phone, password } = req.body as LoginInput;
     const { user, tokens } = await authService.login(phone, password, req);

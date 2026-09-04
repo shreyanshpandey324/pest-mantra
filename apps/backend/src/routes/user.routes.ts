@@ -10,6 +10,8 @@ import {
 
 import {
   createUserSchema,
+  otpAccessSchema,
+  resetUserPasswordSchema,
   updateUserSchema,
 } from "../validators/auth.validators";
 
@@ -23,6 +25,16 @@ import {
 } from "../models/User";
 
 const router = Router();
+
+router.get(
+  "/",
+  authenticate,
+  requireRole(
+    UserRole.SUPER_ADMIN,
+    UserRole.OFFICE_ADMIN
+  ),
+  userController.list
+);
 
 /*
 |--------------------------------------------------------------------------
@@ -66,6 +78,22 @@ router.post(
 |   - own-company Technicians only
 |
 */
+router.patch(
+  "/:id/password",
+  authenticate,
+  requireRole(UserRole.SUPER_ADMIN),
+  validateBody(resetUserPasswordSchema),
+  userController.resetPassword
+);
+
+router.patch(
+  "/:id/otp-access",
+  authenticate,
+  requireRole(UserRole.SUPER_ADMIN),
+  validateBody(otpAccessSchema),
+  userController.setOtpAccess
+);
+
 router.patch(
   "/:id",
   authenticate,

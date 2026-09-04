@@ -1,26 +1,19 @@
+import mongoose from "mongoose";
 import { connectDB, disconnectDB } from "../config/db";
+import { env } from "../config/env";
 import { Branch } from "../models/Branch";
+import { Company, CompanyStatus } from "../models/Company";
 import { TechnicianProfile, DutyStatus } from "../models/TechnicianProfile";
 import { User, UserRole } from "../models/User";
 import { logger } from "../utils/logger";
 
-const DEFAULT_PASSWORD = "Pest@123";
 const BRANCH_NAME = "Tughlakabad Office";
 const BRANCH_CITY = "Delhi";
 const BRANCH_STATE = "Delhi";
 const FIXED_PHONE_NUMBERS = [
-  "9876500001",
-  "9876500002",
-  "9876500003",
-  "9876500004",
-  "9876500005",
-  "9876500006",
-  "9876500007",
-  "9876500008",
-  "9876500009",
-  "9876500010",
-  "9876500011",
-  "9876500012",
+  "9876500001", "9876500002", "9876500003", "9876500004",
+  "9876500005", "9876500006", "9876500007", "9876500008",
+  "9876500009", "9876500010", "9876500011", "9876500012",
   "9876500013",
 ] as const;
 
@@ -40,12 +33,58 @@ const TECHNICIANS = [
   { name: "Akash", employeeCode: "PM-TECH-0013" },
 ] as const;
 
+async function resolveCompanyId(): Promise<mongoose.Types.ObjectId> {
+  if (env.SEED_TECHNICIAN_COMPANY_ID) {
+    if (!mongoose.Types.ObjectId.isValid(env.SEED_TECHNICIAN_COMPANY_ID)) {
+      throw new Error("SEED_TECHNICIAN_COMPANY_ID is not a valid MongoDB ObjectId.");
+    }
+
+    const company = await Company.findOne({
+      _id: env.SEED_TECHNICIAN_COMPANY_ID,
+      isActive: true,
+      status: CompanyStatus.APPROVED,
+    }).select("_id");
+
+    if (!company) {
+      throw new Error("Configured technician seed company is not active and approved.");
+    }
+
+    return company._id;
+  }
+
+  const companies = await Company.find({
+    isActive: true,
+    status: CompanyStatus.APPROVED,
+  }).select("_id").limit(2);
+
+  if (companies.length !== 1) {
+    throw new Error(
+      "Technician seed needs one unambiguous company. Set SEED_TECHNICIAN_COMPANY_ID in apps/backend/.env."
+    );
+  }
+
+  return companies[0]._id;
+}
+
 async function run(): Promise<void> {
   await connectDB();
 
-  let branch = await Branch.findOne({ name: BRANCH_NAME });
+  if (!env.SEED_TECHNICIAN_PASSWORD) {
+    throw new Error(
+      "SEED_TECHNICIAN_PASSWORD is required. Do not keep a shared password in source code."
+    );
+  }
+
+  const companyId = await resolveCompanyId();
+
+  let branch = await Branch.findOne({
+    companyId,
+    name: BRANCH_NAME,
+  });
+
   if (!branch) {
     branch = await Branch.create({
+      companyId,
       name: BRANCH_NAME,
       city: BRANCH_CITY,
       state: BRANCH_STATE,
@@ -56,18 +95,27 @@ async function run(): Promise<void> {
     logger.info(`Branch already exists: ${branch.name}`);
   }
 
-  const existingUsers = await User.find({ role: UserRole.TECHNICIAN }).lean();
+  const existingUsers = await User.find({
+    role: UserRole.TECHNICIAN,
+    companyId,
+  }).lean();
+
   const existingEmployeeCodes = new Set(
-    (await TechnicianProfile.find({ employeeCode: { $in: TECHNICIANS.map((t) => t.employeeCode) } }).lean()).map(
-      (profile) => profile.employeeCode
-    )
+    (await TechnicianProfile.find({
+      employeeCode: { $in: TECHNICIANS.map((t) => t.employeeCode) },
+    }).lean()).map((profile) => profile.employeeCode)
   );
 
   const created: string[] = [];
   const skipped: string[] = [];
 
   for (const [index, technician] of TECHNICIANS.entries()) {
-    const existingUser = existingUsers.find((user) => user.name === technician.name);
+    const phone = FIXED_PHONE_NUMBERS[index];
+    // Phone is the user-level identity here. Names are not unique
+    // (the seed intentionally contains two technicians named Sonu Kumar).
+    const existingUser = existingUsers.find(
+      (user) => user.phone === phone
+    );
     const employeeExists = existingEmployeeCodes.has(technician.employeeCode);
 
     if (existingUser || employeeExists) {
@@ -75,13 +123,11 @@ async function run(): Promise<void> {
       continue;
     }
 
-    const password = DEFAULT_PASSWORD;
-    const phone = FIXED_PHONE_NUMBERS[index];
-
     const user = await User.create({
+      companyId,
       name: technician.name,
       phone,
-      passwordHash: password,
+      passwordHash: env.SEED_TECHNICIAN_PASSWORD,
       role: UserRole.TECHNICIAN,
       branchId: branch._id,
       isActive: true,
@@ -98,17 +144,18 @@ async function run(): Promise<void> {
   }
 
   logger.info(`Technicians seed completed. Created: ${created.length}. Skipped: ${skipped.length}.`);
-  if (created.length) {
-    logger.info(`Created: ${created.join(", ")}`);
-  }
-  if (skipped.length) {
-    logger.info(`Skipped: ${skipped.join(", ")}`);
-  }
+  if (created.length) logger.info(`Created: ${created.join(", ")}`);
+  if (skipped.length) logger.info(`Skipped: ${skipped.join(", ")}`);
 
   await disconnectDB();
 }
 
-run().catch((err) => {
+run().catch(async (err) => {
   logger.error("Technician seed failed", err);
+  try {
+    await disconnectDB();
+  } catch {
+    // Ignore disconnect failure during fatal seed cleanup.
+  }
   process.exit(1);
 });

@@ -198,10 +198,10 @@ export class LocationService {
         data.heading ?? 0,
 
       batteryLevel:
-        data.batteryLevel ?? 100,
+        data.batteryLevel,
 
       isCharging:
-        data.isCharging ?? false,
+        data.isCharging,
 
       recordedAt:
         new Date(),
@@ -334,10 +334,10 @@ export class LocationService {
         location.heading ?? 0,
 
       batteryLevel:
-        location.batteryLevel ?? 100,
+        location.batteryLevel ?? null,
 
       isCharging:
-        location.isCharging ?? false,
+        location.isCharging ?? null,
 
       recordedAt:
         location.recordedAt,
@@ -565,10 +565,10 @@ export class LocationService {
             location.heading ?? 0,
 
           batteryLevel:
-            location.batteryLevel ?? 100,
+            location.batteryLevel ?? null,
 
           isCharging:
-            location.isCharging ?? false,
+            location.isCharging ?? null,
 
           recordedAt:
             location.recordedAt,

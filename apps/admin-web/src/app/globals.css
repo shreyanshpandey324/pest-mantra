@@ -1,37 +1,32 @@
 @import "tailwindcss";
 
-/* ==========================================================================
-   Pest Mantra Admin — Tailwind v4 theme tokens
-   Same field-ops console direction as before (dark, hazard-orange
-   accent) — now expressed as Tailwind theme colors instead of
-   hand-written CSS classes, per the switch to Tailwind-only styling.
-   Each --color-* / --font-* token below becomes a Tailwind utility
-   automatically (e.g. --color-accent -> bg-accent, text-accent,
-   border-accent; --font-display -> font-display).
-   ========================================================================== */
+/* Pest Mantra Admin — office-first premium theme.
+   The workflow intentionally stays dense and practical, while the visual
+   system uses a bright workspace, dark enterprise header, and restrained
+   Pest Mantra green/teal accents. */
 @theme {
-  --color-canvas: #0f1115;
-  --color-surface: #171a21;
-  --color-surface-2: #1f232c;
-  --color-border-default: #2a2f3a;
-  --color-border-strong: #3a4150;
+  --color-canvas: #f4f7f6;
+  --color-surface: #ffffff;
+  --color-surface-2: #f7faf9;
+  --color-surface-3: #eef3f1;
 
-  --color-ink: #f2f1ed;
-  --color-ink-muted: #9aa1ac;
-  --color-ink-faint: #6b7280;
+  --color-border-default: #dfe7e3;
+  --color-border-strong: #c4d1cb;
 
-  --color-accent: #ff7a1a;
-  --color-accent-hover: #ff8f3d;
-  --color-accent-ink: #171a21;
+  --color-ink: #17211c;
+  --color-ink-muted: #5e6c65;
+  --color-ink-faint: #8a9690;
 
-  --color-success: #3ddc84;
-  --color-danger: #ff5c5c;
-  --color-warning: #ffc94d;
+  --color-accent: #1ea56a;
+  --color-accent-hover: #168856;
+  --color-accent-ink: #ffffff;
+  --color-accent-soft: #eaf8f1;
+  --color-accent-strong: #137a4f;
 
-  /* Populated by the next/font/google loaders in app/layout.tsx via
-     the matching *-loaded CSS variable applied on <html>; the
-     literal family names remain as the fallback chain for the rare
-     case that variable isn't set (e.g. an isolated CSS render). */
+  --color-success: #1b9a61;
+  --color-danger: #d34b52;
+  --color-warning: #b8790a;
+
   --font-sans: var(--font-sans-loaded), "Inter", "Segoe UI", system-ui, sans-serif;
   --font-display: var(--font-display-loaded), "Space Grotesk", "Segoe UI", system-ui, sans-serif;
   --font-mono: var(--font-mono-loaded), "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
@@ -45,7 +40,10 @@ body {
 
 body {
   @apply bg-canvas text-ink font-sans antialiased;
-  color-scheme: dark;
+  color-scheme: light;
+  background-image:
+    radial-gradient(circle at 8% 0%, rgba(30, 165, 106, 0.045), transparent 24rem),
+    linear-gradient(#f6f8f7, #f3f6f5);
 }
 
 h1,
@@ -53,12 +51,19 @@ h2,
 h3,
 h4 {
   @apply font-display font-semibold;
+  letter-spacing: -0.015em;
 }
 
-/* Visible, high-contrast focus ring everywhere — required for keyboard
-   navigation and never suppressed. */
 :focus-visible {
   @apply outline-2 outline-accent outline-offset-2 rounded-md;
+}
+
+::selection {
+  background: rgba(30, 165, 106, 0.18);
+}
+
+summary::-webkit-details-marker {
+  display: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -68,5 +73,401 @@ h4 {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
+  }
+}
+
+/* Optional dark appearance is preserved for users who prefer it. */
+html[data-theme="dark"] {
+  --color-canvas: #0f1418;
+  --color-surface: #171d22;
+  --color-surface-2: #1e262c;
+  --color-border-default: #2a343b;
+  --color-border-strong: #3b4851;
+  --color-ink: #f0f4f2;
+  --color-ink-muted: #a8b2ad;
+  --color-ink-faint: #737f79;
+  --color-accent: #48d58f;
+  --color-accent-hover: #64e3a4;
+  --color-accent-ink: #062013;
+  --color-accent-soft: #17382a;
+  --color-accent-strong: #74e7ad;
+  --color-success: #48d58f;
+  --color-danger: #ff6d73;
+  --color-warning: #f3bd4a;
+}
+
+html[data-theme="dark"] body {
+  color-scheme: dark;
+  background-image: none;
+}
+
+/* ==========================================================================
+   Pest Mantra Admin — Premium dark enterprise shell.
+
+   Scoped to the authenticated dashboard via `.pm-shell` so public/print
+   surfaces (login, customer portal, service verification, printed service
+   reports) keep their existing light presentation. Only design tokens are
+   redefined here, so every existing semantic utility (bg-surface, text-ink,
+   border-border-default, …) re-themes automatically.
+   ========================================================================== */
+.pm-shell {
+  --color-canvas: #06080a;
+  --color-surface: #101519;
+  --color-surface-2: #171e23;
+  --color-surface-3: #1f272d;
+  --color-border-default: #273037;
+  --color-border-strong: #36414a;
+
+  --color-ink: #eef3f1;
+  --color-ink-muted: #9aa6a3;
+  --color-ink-faint: #6c7876;
+
+  --color-accent: #2fd98a;
+  --color-accent-hover: #4ce7a0;
+  --color-accent-ink: #04170e;
+  --color-accent-soft: #10281f;
+  --color-accent-strong: #7cf0bb;
+
+  --color-success: #35d489;
+  --color-danger: #ff6b72;
+  --color-warning: #f2c14e;
+
+  --pm-elev-1: 0 1px 0 rgba(255, 255, 255, 0.03), 0 8px 24px rgba(0, 0, 0, 0.45);
+  --pm-elev-2: 0 1px 0 rgba(255, 255, 255, 0.04), 0 18px 44px rgba(0, 0, 0, 0.55);
+  --pm-ring: 0 0 0 4px rgba(47, 217, 138, 0.14);
+
+  color-scheme: dark;
+  background-color: var(--color-canvas);
+  color: var(--color-ink);
+  background-image:
+    radial-gradient(900px 420px at 12% -8%, rgba(47, 217, 138, 0.09), transparent 70%),
+    radial-gradient(720px 360px at 100% 0%, rgba(58, 128, 255, 0.06), transparent 70%);
+  background-attachment: fixed;
+}
+
+/* Cards and elevated panels inside the shell get real depth instead of the
+   light-theme hairline shadow. */
+.pm-shell .shadow-sm,
+.pm-shell [class*="shadow-["] {
+  box-shadow: var(--pm-elev-1);
+}
+
+.pm-shell :focus-visible {
+  outline-color: var(--color-accent);
+}
+
+/* Native controls */
+.pm-shell input,
+.pm-shell select,
+.pm-shell textarea {
+  color-scheme: dark;
+}
+
+.pm-shell select option {
+  background-color: var(--color-surface-2);
+  color: var(--color-ink);
+}
+
+.pm-shell ::placeholder {
+  color: var(--color-ink-faint);
+}
+
+.pm-shell ::selection {
+  background: rgba(47, 217, 138, 0.24);
+  color: var(--color-ink);
+}
+
+/* Quiet, premium scrollbars */
+.pm-shell *::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.pm-shell *::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.pm-shell *::-webkit-scrollbar-thumb {
+  background: #262f35;
+  border: 2px solid transparent;
+  background-clip: content-box;
+  border-radius: 999px;
+}
+
+.pm-shell *::-webkit-scrollbar-thumb:hover {
+  background: #3a464e;
+  background-clip: content-box;
+}
+
+/* --- Shell primitives ---------------------------------------------------- */
+
+.pm-surface-raised {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0)) ,
+    var(--color-surface);
+}
+
+.pm-topbar {
+  background: color-mix(in srgb, var(--color-surface) 88%, transparent);
+  backdrop-filter: saturate(140%) blur(14px);
+  -webkit-backdrop-filter: saturate(140%) blur(14px);
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.pm-sidebar {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0)),
+    var(--color-surface);
+  border-right: 1px solid var(--color-border-default);
+}
+
+.pm-nav-active {
+  background: linear-gradient(90deg, rgba(47, 217, 138, 0.16), rgba(47, 217, 138, 0.03));
+  box-shadow: inset 2px 0 0 var(--color-accent);
+}
+
+.pm-hairline {
+  border-color: var(--color-border-default);
+}
+
+/* Table polish — applies to every dashboard table without markup churn. */
+.pm-shell table thead th {
+  background: var(--color-surface-2);
+  color: var(--color-ink-faint);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.pm-shell table tbody tr {
+  transition: background-color 140ms ease;
+}
+
+.pm-shell table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.028);
+}
+
+/* Dialog / modal backdrops read as glass over the black canvas. */
+.pm-modal-backdrop {
+  background: rgba(2, 5, 7, 0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+/* Entrance motion for dashboard content, restrained for enterprise use. */
+@keyframes pm-fade-rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.pm-enter {
+  animation: pm-fade-rise 320ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pm-enter {
+    animation: none !important;
+  }
+}
+
+@media print {
+  .pm-shell {
+    background: #fff !important;
+    color: #111 !important;
+  }
+}
+
+
+@media print {
+  nav,
+  header,
+  .print\:hidden {
+    display: none !important;
+  }
+  main {
+    padding: 0 !important;
+  }
+  body,
+  html {
+    background: white !important;
+    color: #111 !important;
+  }
+  .print\:border-0 {
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+}
+
+/* Login micro-motion — intentionally restrained for an enterprise feel. */
+@keyframes pm-login-shell-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.997); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes pm-login-brand-in {
+  from { opacity: 0; transform: translateY(-12px); filter: blur(2px); }
+  to { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+
+@keyframes pm-login-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pm-login-card-in {
+  from { opacity: 0; transform: translateY(16px) scale(0.99); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes pm-login-benefit-in {
+  from { opacity: 0; transform: translateX(-10px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes pm-login-ambient-drift {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.9; }
+  50% { transform: translate3d(1.5%, -1%, 0) scale(1.025); opacity: 1; }
+}
+
+@keyframes pm-login-glow {
+  0%, 100% { opacity: 0.7; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.18); }
+}
+
+.login-shell {
+  animation: pm-login-shell-in 520ms cubic-bezier(.2,.75,.25,1) both;
+}
+
+.login-ambient {
+  animation: pm-login-ambient-drift 12s ease-in-out 700ms infinite;
+  transform-origin: center;
+}
+
+.login-glow-dot {
+  animation: pm-login-glow 3.2s ease-in-out 1s infinite;
+}
+
+.login-brand {
+  animation: pm-login-brand-in 620ms cubic-bezier(.18,.8,.24,1) 90ms both;
+}
+
+.login-tagline {
+  animation: pm-login-rise 560ms cubic-bezier(.2,.75,.25,1) 210ms both;
+}
+
+.login-title {
+  animation: pm-login-rise 620ms cubic-bezier(.2,.75,.25,1) 250ms both;
+}
+
+.login-subcopy {
+  animation: pm-login-rise 600ms cubic-bezier(.2,.75,.25,1) 330ms both;
+}
+
+.login-benefit {
+  opacity: 0;
+  animation: pm-login-benefit-in 500ms cubic-bezier(.2,.75,.25,1) both;
+  transition: transform 180ms ease, border-color 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
+}
+
+.login-benefit:nth-child(1) { animation-delay: 390ms; }
+.login-benefit:nth-child(2) { animation-delay: 455ms; }
+.login-benefit:nth-child(3) { animation-delay: 520ms; }
+.login-benefit:nth-child(4) { animation-delay: 585ms; }
+.login-benefit:nth-child(5) { animation-delay: 650ms; }
+
+.login-benefit:hover {
+  transform: translateY(-2px);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 10px 24px rgba(2, 12, 27, .14);
+}
+
+.login-proof {
+  animation: pm-login-rise 560ms cubic-bezier(.2,.75,.25,1) 690ms both;
+}
+
+.login-auth-heading {
+  animation: pm-login-rise 610ms cubic-bezier(.2,.75,.25,1) 180ms both;
+}
+
+.login-card {
+  animation: pm-login-card-in 640ms cubic-bezier(.18,.8,.24,1) 280ms both;
+  transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease;
+}
+
+.login-card:hover {
+  transform: translateY(-2px);
+  border-color: #cfddd6;
+  box-shadow: 0 22px 56px rgba(15,23,42,.09);
+}
+
+.login-security {
+  animation: pm-login-rise 520ms cubic-bezier(.2,.75,.25,1) 430ms both;
+}
+
+.login-input {
+  transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease, transform 160ms ease;
+}
+
+.login-input:focus {
+  transform: translateY(-1px);
+  box-shadow: 0 0 0 4px rgba(30,165,106,.10), 0 8px 18px rgba(15,23,42,.035);
+}
+
+.login-submit {
+  position: relative;
+  overflow: hidden;
+  transition: transform 170ms ease, box-shadow 170ms ease, filter 170ms ease;
+}
+
+.login-submit::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 25%, rgba(255,255,255,.16) 47%, transparent 68%);
+  transform: translateX(-130%);
+  transition: transform 520ms ease;
+  pointer-events: none;
+}
+
+.login-submit:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(30,165,106,.20);
+  filter: saturate(1.04);
+}
+
+.login-submit:hover:not(:disabled)::after {
+  transform: translateX(130%);
+}
+
+.login-submit:active:not(:disabled) {
+  transform: translateY(0) scale(.995);
+}
+
+.login-submit > span[aria-hidden="true"] {
+  display: inline-block;
+  transition: transform 170ms ease;
+}
+
+.login-submit:hover:not(:disabled) > span[aria-hidden="true"] {
+  transform: translateX(3px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-shell,
+  .login-ambient,
+  .login-glow-dot,
+  .login-brand,
+  .login-tagline,
+  .login-title,
+  .login-subcopy,
+  .login-benefit,
+  .login-proof,
+  .login-auth-heading,
+  .login-card,
+  .login-security {
+    opacity: 1 !important;
+    animation: none !important;
+    transform: none !important;
   }
 }

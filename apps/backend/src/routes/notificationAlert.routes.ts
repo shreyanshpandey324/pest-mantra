@@ -1,0 +1,13 @@
+import { Router } from "express";
+import { notificationAlertController } from "../controllers/notificationAlert.controller";
+import { authenticate, requireRole } from "../middleware/auth.middleware";
+import { validateQuery } from "../middleware/validate.middleware";
+import { UserRole } from "../models/User";
+import { listNotificationAlertsSchema } from "../validators/notificationAlert.validators";
+const router = Router();
+router.use(authenticate, requireRole(UserRole.SUPER_ADMIN, UserRole.OFFICE_ADMIN));
+router.get("/", validateQuery(listNotificationAlertsSchema), notificationAlertController.list);
+router.post("/sweep", notificationAlertController.sweep);
+router.post("/read-all", notificationAlertController.readAll);
+router.post("/:id/read", notificationAlertController.read);
+export default router;

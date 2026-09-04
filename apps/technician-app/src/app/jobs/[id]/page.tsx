@@ -3,6 +3,8 @@ import Link from "next/link";
 import { ACCESS_COOKIE_NAME } from "@/lib/session";
 import { backendFetch, BackendApiError } from "@/lib/backend-client";
 import { Job, JobPhoto } from "@/types/job";
+import { Chemical, ProjectChemicalUsage } from "@/types/inventory";
+import { ServiceReport } from "@/types/serviceReport";
 import { ui } from "@/lib/ui-classes";
 import { JobDetailClient } from "@/components/JobDetailClient";
 
@@ -24,15 +26,32 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
 
   let job: Job | null = null;
   let photos: JobPhoto[] = [];
+  let chemicals: Chemical[] = [];
+  let chemicalUsage: ProjectChemicalUsage[] = [];
+  let chemicalLoadWarning: string | null = null;
+  let initialServiceReport: ServiceReport | null = null;
   let loadError: string | null = null;
 
   try {
-    const [jobData, photosData] = await Promise.all([
+    const [jobResult, photosResult, chemicalsResult, usageResult, reportResult] = await Promise.allSettled([
       backendFetch<{ project: Job }>(`/projects/${id}`, { accessToken }),
       backendFetch<{ photos: JobPhoto[] }>(`/projects/${id}/photos`, { accessToken }),
+      backendFetch<{ chemicals: Chemical[] }>("/chemicals", { accessToken }),
+      backendFetch<{ usage: ProjectChemicalUsage[] }>(`/chemicals/usage/project/${id}`, { accessToken }),
+      backendFetch<{ report: ServiceReport }>(`/service-reports/project/${id}`, { accessToken }),
     ]);
-    job = jobData.project;
-    photos = photosData.photos;
+
+    if (jobResult.status === "rejected") throw jobResult.reason;
+    if (photosResult.status === "rejected") throw photosResult.reason;
+
+    job = jobResult.value.project;
+    photos = photosResult.value.photos;
+    if (chemicalsResult.status === "fulfilled") chemicals = chemicalsResult.value.chemicals ?? [];
+    if (usageResult.status === "fulfilled") chemicalUsage = usageResult.value.usage ?? [];
+    if (reportResult.status === "fulfilled") initialServiceReport = reportResult.value.report ?? null;
+    if (chemicalsResult.status === "rejected" || usageResult.status === "rejected") {
+      chemicalLoadWarning = "Chemical usage is temporarily unavailable, but the rest of the job can continue.";
+    }
   } catch (err) {
     loadError = err instanceof BackendApiError ? err.message : "Could not load this job.";
   }
@@ -44,7 +63,7 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
       </Link>
 
       {loadError && <p className={ui.errorText}>{loadError}</p>}
-      {job && <JobDetailClient initialJob={job} initialPhotos={photos} />}
+      {job && <JobDetailClient initialJob={job} initialPhotos={photos} initialChemicals={chemicals} initialChemicalUsage={chemicalUsage} initialServiceReport={initialServiceReport} chemicalLoadWarning={chemicalLoadWarning} />}
     </div>
   );
 }

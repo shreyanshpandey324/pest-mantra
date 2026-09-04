@@ -36,3 +36,12 @@ export interface ChemicalCheckout {
   returnedAt?: string;
   returnedTo?: string;
 }
+
+export interface ProjectChemicalUsage {
+  _id: string;
+  projectId: string;
+  chemicalId: string;
+  quantityUsed: number;
+  loggedBy: string;
+  loggedAt: string;
+}

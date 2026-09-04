@@ -1,0 +1,2 @@
+export interface AuditLog { _id: string; actorId: string; actorRole: string; actor?: { _id: string; name: string; phone: string; role: string }; method: string; path: string; action: string; entityType?: string; entityId?: string; statusCode: number; ip?: string; userAgent?: string; metadata?: Record<string, unknown>; createdAt: string; }
+export interface AuditListResponse { logs: AuditLog[]; pagination: { page: number; pageSize: number; total: number; totalPages: number } }

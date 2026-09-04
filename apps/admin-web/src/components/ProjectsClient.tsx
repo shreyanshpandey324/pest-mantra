@@ -4,18 +4,37 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
 import { NewProjectModal } from "@/components/NewProjectModal";
+import { ServiceCalendar } from "@/components/ServiceCalendar";
 
 import {
   Project,
   ProjectStatus,
+  ProjectPriority,
+  PRIORITY_LABELS,
   STATUS_LABELS,
   SERVICE_TYPE_LABELS,
 } from "@/types/project";
 
 import { ui } from "@/lib/ui-classes";
 
+type ProjectView =
+  | "all"
+  | "pending"
+  | "upcoming"
+  | "today"
+  | "in_progress"
+  | "completed"
+  | "overdue"
+  | "cancelled"
+  | "unassigned";
+
 interface Props {
   projects: Project[];
+  initialSearch?: string;
+  initialView?: ProjectView;
+  initialFrom?: string;
+  initialTo?: string;
+  initialServiceType?: string;
 }
 
 type SortKey =
@@ -32,9 +51,6 @@ type ConfirmTarget =
       id: string;
       label: string;
     }
-  | {
-      type: "all";
-    }
   | null;
 
 type Toast =
@@ -43,6 +59,21 @@ type Toast =
       text: string;
     }
   | null;
+
+interface SavedProjectView {
+  id: string;
+  name: string;
+  search: string;
+  viewFilter: ProjectView;
+  serviceTypeFilter: string;
+  fromDate: string;
+  toDate: string;
+  statusFilter: ProjectStatus | "all";
+  priorityFilter: ProjectPriority | "all";
+  sortKey: SortKey;
+  sortDir: SortDir;
+  displayMode: "list" | "calendar";
+}
 
 const STATUS_DOT: Record<ProjectStatus, string> = {
   [ProjectStatus.NEW]: "bg-ink-muted",
@@ -87,19 +118,80 @@ const STATUS_FILTER_OPTIONS: Array<{
   },
 ];
 
+const PROJECT_VIEW_OPTIONS: Array<{ value: ProjectView; label: string }> = [
+  { value: "all", label: "All" },
+  { value: "pending", label: "Pending" },
+  { value: "upcoming", label: "Upcoming" },
+  { value: "today", label: "Today" },
+  { value: "in_progress", label: "In Progress" },
+  { value: "completed", label: "Completed" },
+  { value: "overdue", label: "Overdue" },
+  { value: "cancelled", label: "Cancelled" },
+  { value: "unassigned", label: "Unassigned" },
+];
+
+function dateKey(value?: string): string {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value.slice(0, 10);
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
+function todayKey(): string {
+  return dateKey(new Date().toISOString());
+}
+
+function offsetKey(base: string, offset: number): string {
+  const [year, month, day] = base.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day + offset, 6)).toISOString().slice(0, 10);
+}
+
+function dayLabel(key: string, index: number): string {
+  const [year, month, day] = key.split("-").map(Number);
+  const value = new Date(Date.UTC(year, month - 1, day, 6));
+  if (index === 0) return "Today";
+  if (index === 1) return "Tomorrow";
+  return value.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", timeZone: "Asia/Kolkata" });
+}
+
 const PAGE_SIZE = 10;
 
 export default function ProjectsClient({
   projects: initialProjects,
+  initialSearch = "",
+  initialView = "all",
+  initialFrom = "",
+  initialTo = "",
+  initialServiceType = "all",
 }: Props) {
   const [projects, setProjects] =
     useState<Project[]>(initialProjects);
 
   const [search, setSearch] =
-    useState("");
+    useState(initialSearch);
+
+  const [displayMode, setDisplayMode] =
+    useState<"list" | "calendar">("list");
+
+  const [viewFilter, setViewFilter] =
+    useState<ProjectView>(initialView);
+
+  const [serviceTypeFilter, setServiceTypeFilter] =
+    useState(initialServiceType);
+
+  const [fromDate, setFromDate] = useState(initialFrom);
+  const [toDate, setToDate] = useState(initialTo);
 
   const [statusFilter, setStatusFilter] =
     useState<ProjectStatus | "all">("all");
+
+  const [priorityFilter, setPriorityFilter] =
+    useState<ProjectPriority | "all">("all");
 
   const [sortKey, setSortKey] =
     useState<SortKey>("createdAt");
@@ -125,13 +217,30 @@ export default function ProjectsClient({
   const [toast, setToast] =
     useState<Toast>(null);
 
+  const [savedViews, setSavedViews] =
+    useState<SavedProjectView[]>([]);
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem("pm_project_saved_views");
+      if (stored) setSavedViews(JSON.parse(stored) as SavedProjectView[]);
+    } catch {
+      window.localStorage.removeItem("pm_project_saved_views");
+    }
+  }, []);
+
   /*
    * Server-rendered page can receive fresh
    * backend data after navigation/revalidation.
    */
   useEffect(() => {
     setProjects(initialProjects);
-  }, [initialProjects]);
+    setSearch(initialSearch);
+    setViewFilter(initialView);
+    setServiceTypeFilter(initialServiceType);
+    setFromDate(initialFrom);
+    setToDate(initialTo);
+  }, [initialProjects, initialSearch, initialView, initialServiceType, initialFrom, initialTo]);
 
   /*
    * Automatically remove toast after a short
@@ -154,7 +263,7 @@ export default function ProjectsClient({
    */
   useEffect(() => {
     setPage(1);
-  }, [search, statusFilter]);
+  }, [search, statusFilter, priorityFilter, viewFilter, serviceTypeFilter, fromDate, toDate]);
 
   /*
    * Escape closes confirmation dialog.
@@ -218,9 +327,40 @@ export default function ProjectsClient({
           statusFilter === "all" ||
           project.status === statusFilter;
 
+        const matchesService =
+          serviceTypeFilter === "all" ||
+          project.serviceType === serviceTypeFilter;
+
+        const matchesPriority =
+          priorityFilter === "all" ||
+          (project.priority ?? ProjectPriority.NORMAL) === priorityFilter;
+
+        const scheduled = dateKey(project.scheduledDate);
+        const today = todayKey();
+        const isActive = project.status !== ProjectStatus.COMPLETED && project.status !== ProjectStatus.CANCELLED;
+
+        const matchesView =
+          viewFilter === "all" ||
+          (viewFilter === "pending" && [ProjectStatus.NEW, ProjectStatus.ASSIGNED].includes(project.status)) ||
+          (viewFilter === "upcoming" && isActive && Boolean(scheduled) && scheduled > today) ||
+          (viewFilter === "today" && project.status !== ProjectStatus.CANCELLED && scheduled === today) ||
+          (viewFilter === "in_progress" && [ProjectStatus.EN_ROUTE, ProjectStatus.IN_PROGRESS].includes(project.status)) ||
+          (viewFilter === "completed" && project.status === ProjectStatus.COMPLETED) ||
+          (viewFilter === "overdue" && isActive && Boolean(scheduled) && scheduled < today) ||
+          (viewFilter === "cancelled" && project.status === ProjectStatus.CANCELLED) ||
+          (viewFilter === "unassigned" && isActive && !project.assignedTechnicianId);
+
+        const matchesFrom = !fromDate || (Boolean(scheduled) && scheduled >= fromDate);
+        const matchesTo = !toDate || (Boolean(scheduled) && scheduled <= toDate);
+
         return (
           matchesKeyword &&
-          matchesStatus
+          matchesStatus &&
+          matchesService &&
+          matchesPriority &&
+          matchesView &&
+          matchesFrom &&
+          matchesTo
         );
       }
     );
@@ -275,6 +415,11 @@ export default function ProjectsClient({
     projects,
     search,
     statusFilter,
+    priorityFilter,
+    viewFilter,
+    serviceTypeFilter,
+    fromDate,
+    toDate,
     sortKey,
     sortDir,
   ]);
@@ -336,6 +481,88 @@ export default function ProjectsClient({
     );
   }
 
+  const scheduleLens = useMemo(() => {
+    const today = todayKey();
+    return Array.from({ length: 7 }, (_, index) => {
+      const key = offsetKey(today, index);
+      const rows = projects.filter((project) => dateKey(project.scheduledDate) === key && project.status !== ProjectStatus.CANCELLED);
+      return {
+        key,
+        index,
+        label: dayLabel(key, index),
+        total: rows.length,
+        active: rows.filter((project) => project.status !== ProjectStatus.COMPLETED).length,
+        unassigned: rows.filter((project) => !project.assignedTechnicianId && project.status !== ProjectStatus.COMPLETED).length,
+      };
+    });
+  }, [projects]);
+
+  const viewCounts = useMemo(() => {
+    const today = todayKey();
+    const count = (view: ProjectView) => projects.filter((project) => {
+      const scheduled = dateKey(project.scheduledDate);
+      const isActive = project.status !== ProjectStatus.COMPLETED && project.status !== ProjectStatus.CANCELLED;
+      if (view === "all") return true;
+      if (view === "pending") return [ProjectStatus.NEW, ProjectStatus.ASSIGNED].includes(project.status);
+      if (view === "upcoming") return isActive && Boolean(scheduled) && scheduled > today;
+      if (view === "today") return project.status !== ProjectStatus.CANCELLED && scheduled === today;
+      if (view === "in_progress") return [ProjectStatus.EN_ROUTE, ProjectStatus.IN_PROGRESS].includes(project.status);
+      if (view === "completed") return project.status === ProjectStatus.COMPLETED;
+      if (view === "overdue") return isActive && Boolean(scheduled) && scheduled < today;
+      if (view === "cancelled") return project.status === ProjectStatus.CANCELLED;
+      return isActive && !project.assignedTechnicianId;
+    }).length;
+    return Object.fromEntries(PROJECT_VIEW_OPTIONS.map((option) => [option.value, count(option.value)])) as Record<ProjectView, number>;
+  }, [projects]);
+
+  function clearFilters() {
+    setSearch("");
+    setViewFilter("all");
+    setStatusFilter("all");
+    setPriorityFilter("all");
+    setServiceTypeFilter("all");
+    setFromDate("");
+    setToDate("");
+  }
+
+  function saveCurrentView() {
+    const name = window.prompt("Name this project view", viewFilter === "all" ? "My service view" : `${PROJECT_VIEW_OPTIONS.find((item) => item.value === viewFilter)?.label ?? "Service"} view`);
+    if (!name?.trim()) return;
+    const view: SavedProjectView = {
+      id: `${Date.now()}`,
+      name: name.trim(),
+      search,
+      viewFilter,
+      serviceTypeFilter,
+      fromDate,
+      toDate,
+      statusFilter,
+      priorityFilter,
+      sortKey,
+      sortDir,
+      displayMode,
+    };
+    const next = [view, ...savedViews.filter((item) => item.name.toLowerCase() !== view.name.toLowerCase())].slice(0, 8);
+    setSavedViews(next);
+    window.localStorage.setItem("pm_project_saved_views", JSON.stringify(next));
+    setToast({ kind: "success", text: `Saved view “${view.name}”.` });
+  }
+
+  function applySavedView(id: string) {
+    const view = savedViews.find((item) => item.id === id);
+    if (!view) return;
+    setSearch(view.search);
+    setViewFilter(view.viewFilter);
+    setServiceTypeFilter(view.serviceTypeFilter);
+    setFromDate(view.fromDate);
+    setToDate(view.toDate);
+    setStatusFilter(view.statusFilter);
+    setPriorityFilter(view.priorityFilter);
+    setSortKey(view.sortKey);
+    setSortDir(view.sortDir);
+    setDisplayMode(view.displayMode);
+  }
+
   async function handleConfirmDelete() {
     if (!confirmTarget) {
       return;
@@ -344,52 +571,7 @@ export default function ProjectsClient({
     setIsDeleting(true);
 
     try {
-      /*
-       * DELETE ALL is still authorized by the
-       * backend.
-       *
-       * Super Admin:
-       *   deletes all projects.
-       *
-       * Office Admin:
-       *   backend limits deletion to their
-       *   permitted company/branch scope.
-       *
-       * The browser must never decide that scope.
-       */
-      if (
-        confirmTarget.type === "all"
-      ) {
-        const response =
-          await fetch(
-            "/api/projects/delete-all",
-            {
-              method: "DELETE",
-            }
-          );
-
-        const data =
-          await response.json();
-
-        if (
-          !response.ok ||
-          !data.success
-        ) {
-          throw new Error(
-            data.message ||
-              "Delete failed"
-          );
-        }
-
-        setProjects([]);
-
-        setToast({
-          kind: "success",
-          text:
-            "Projects in your authorized scope were deleted.",
-        });
-      } else {
-        setDeletingRowId(
+      setDeletingRowId(
           confirmTarget.id
         );
 
@@ -421,7 +603,7 @@ export default function ProjectsClient({
             previous.filter(
               (project) =>
                 project._id !==
-                confirmTarget.id
+                  confirmTarget.id
             )
         );
 
@@ -430,7 +612,6 @@ export default function ProjectsClient({
           text:
             "Project deleted successfully.",
         });
-      }
 
       setConfirmTarget(null);
     } catch (error) {
@@ -463,77 +644,115 @@ export default function ProjectsClient({
         </div>
       )}
 
-      <div
-        className={`${ui.card} mb-6 p-5`}
-      >
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex flex-1 flex-col gap-3 sm:flex-row">
+      <div className={`${ui.card} mb-6 p-5`}>
+        <div className="flex flex-wrap gap-2 border-b border-border-default pb-4">
+          {PROJECT_VIEW_OPTIONS.map((option) => (
+            <button
+              type="button"
+              key={option.value}
+              onClick={() => setViewFilter(option.value)}
+              className={`rounded-full border px-3 py-2 text-xs font-semibold transition ${
+                viewFilter === option.value
+                  ? "border-accent bg-accent text-accent-ink shadow-sm"
+                  : "border-border-default bg-surface-2 text-ink-muted hover:border-accent/50 hover:text-ink"
+              }`}
+            >
+              {option.label} <span className="ml-1 opacity-70">{viewCounts[option.value]}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(240px,1.3fr)_170px_150px_170px_145px_145px_auto] xl:items-end">
+          <label className="text-xs text-ink-muted">Search
             <input
               value={search}
-              onChange={(event) =>
-                setSearch(
-                  event.target.value
-                )
-              }
-              placeholder="🔎 Search by Project Code, Customer or Phone..."
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Project code, customer or phone…"
               aria-label="Search projects"
-              className="flex-1 rounded-xl border border-border-default bg-surface px-4 py-3 outline-none focus:border-accent"
+              className={`${ui.input} mt-1`}
             />
+          </label>
 
+          <label className="text-xs text-ink-muted">Service
+            <select className={`${ui.input} mt-1`} value={serviceTypeFilter} onChange={(event) => setServiceTypeFilter(event.target.value)}>
+              <option value="all">All service types</option>
+              {Object.entries(SERVICE_TYPE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select>
+          </label>
+
+          <label className="text-xs text-ink-muted">Workflow status
             <select
               value={statusFilter}
-              onChange={(event) =>
-                setStatusFilter(
-                  event.target.value as
-                    | ProjectStatus
-                    | "all"
-                )
-              }
+              onChange={(event) => setStatusFilter(event.target.value as ProjectStatus | "all")}
               aria-label="Filter by status"
-              className="rounded-xl border border-border-default bg-surface px-4 py-3 outline-none focus:border-accent sm:w-48"
+              className={`${ui.input} mt-1`}
             >
-              {STATUS_FILTER_OPTIONS.map(
-                (option) => (
-                  <option
-                    key={option.value}
-                    value={option.value}
-                  >
-                    {option.label}
-                  </option>
-                )
-              )}
+              {STATUS_FILTER_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </select>
+          </label>
+
+          <label className="text-xs text-ink-muted">Priority
+            <select
+              value={priorityFilter}
+              onChange={(event) => setPriorityFilter(event.target.value as ProjectPriority | "all")}
+              aria-label="Filter by priority"
+              className={`${ui.input} mt-1`}
+            >
+              <option value="all">All priorities</option>
+              {Object.entries(PRIORITY_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select>
+          </label>
+
+          <label className="text-xs text-ink-muted">From
+            <input type="date" className={`${ui.input} mt-1`} value={fromDate} onChange={(event) => setFromDate(event.target.value)} />
+          </label>
+
+          <label className="text-xs text-ink-muted">To
+            <input type="date" className={`${ui.input} mt-1`} value={toDate} onChange={(event) => setToDate(event.target.value)} />
+          </label>
+
+          <div className="flex gap-2">
+            <button type="button" className={ui.btnGhostSm} onClick={clearFilters}>Reset</button>
+            <button type="button" className={ui.btnPrimary} onClick={() => setShowModal(true)}>+ New Project</button>
           </div>
+        </div>
 
-          <div className="flex gap-3">
-            <button
-              type="button"
-              className={ui.btnPrimary}
-              onClick={() =>
-                setShowModal(true)
-              }
-            >
-              + New Project
-            </button>
-
-            <button
-              type="button"
-              onClick={() =>
-                setConfirmTarget({
-                  type: "all",
-                })
-              }
-              disabled={
-                projects.length === 0
-              }
-              className="rounded-xl bg-red-600 px-5 py-3 font-semibold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              🗑 Delete All
-            </button>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-ink-muted">
+          <span><b className="text-ink">{filteredProjects.length}</b> matching service{filteredProjects.length === 1 ? "" : "s"}</span>
+          <div className="flex flex-wrap items-center gap-2">
+            {savedViews.length ? (
+              <select aria-label="Open saved project view" defaultValue="" onChange={(event) => { if (event.target.value) applySavedView(event.target.value); event.currentTarget.value = ""; }} className="h-9 rounded-lg border border-border-default bg-surface-2 px-2 text-xs text-ink">
+                <option value="">Saved views…</option>
+                {savedViews.map((view) => <option key={view.id} value={view.id}>{view.name}</option>)}
+              </select>
+            ) : null}
+            <button type="button" className={ui.btnGhostSm} onClick={saveCurrentView}>☆ Save view</button>
+            <span>View</span>
+            <button type="button" className={displayMode === "list" ? ui.btnPrimary : ui.btnGhostSm} onClick={() => setDisplayMode("list")}>List</button>
+            <button type="button" className={displayMode === "calendar" ? ui.btnPrimary : ui.btnGhostSm} onClick={() => setDisplayMode("calendar")}>Calendar</button>
           </div>
         </div>
       </div>
 
+      <section className={`${ui.card} mb-6 p-4`} aria-label="Seven day schedule lens">
+        <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+          <div><p className="text-xs font-bold uppercase tracking-[0.16em] text-accent">7-day schedule lens</p><p className="mt-1 text-xs text-ink-muted">Click a day to isolate its scheduled services instantly.</p></div>
+          <button type="button" className={ui.btnGhostSm} onClick={() => { setFromDate(""); setToDate(""); }}>Clear day focus</button>
+        </div>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-7">
+          {scheduleLens.map((day) => (
+            <button key={day.key} type="button" onClick={() => { setViewFilter("all"); setFromDate(day.key); setToDate(day.key); }} className={`rounded-xl border p-3 text-left transition hover:border-accent/50 ${(fromDate === day.key && toDate === day.key) ? "border-accent bg-accent/10" : "border-border-default bg-surface-2/50"}`}>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-faint">{day.label}</p>
+              <p className="mt-2 text-2xl font-semibold text-ink">{day.total}</p>
+              <p className="mt-1 text-[10px] text-ink-muted">{day.active} active{day.unassigned ? ` · ${day.unassigned} unassigned` : ""}</p>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {displayMode === "calendar" ? (
+        <ServiceCalendar projects={filteredProjects} onDaySelect={(key) => { setFromDate(key); setToDate(key); setDisplayMode("list"); setPage(1); }} />
+      ) : (
       <div
         className={`${ui.card} overflow-hidden`}
       >
@@ -616,17 +835,10 @@ export default function ProjectsClient({
                       No Projects Found
                     </span>
 
-                    {(search ||
-                      statusFilter !==
-                        "all") && (
+                    {(search || statusFilter !== "all" || priorityFilter !== "all" || viewFilter !== "all" || serviceTypeFilter !== "all" || fromDate || toDate) && (
                       <button
                         type="button"
-                        onClick={() => {
-                          setSearch("");
-                          setStatusFilter(
-                            "all"
-                          );
-                        }}
+                        onClick={clearFilters}
                         className="mt-1 text-sm font-medium text-accent hover:underline"
                       >
                         Clear filters
@@ -794,6 +1006,7 @@ export default function ProjectsClient({
           </div>
         )}
       </div>
+      )}
 
       {showModal && (
         <NewProjectModal
@@ -821,7 +1034,7 @@ export default function ProjectsClient({
 
       {confirmTarget && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4"
+          className="fixed inset-0 z-[60] flex items-center justify-center pm-modal-backdrop p-4"
           role="dialog"
           aria-modal="true"
           aria-labelledby="confirm-delete-title"
@@ -840,17 +1053,11 @@ export default function ProjectsClient({
               id="confirm-delete-title"
               className="text-lg font-semibold"
             >
-              {confirmTarget.type ===
-              "all"
-                ? "Delete all projects in your scope?"
-                : "Delete this project?"}
+              Delete this project?
             </h2>
 
             <p className="mt-2 text-sm text-ink-muted">
-              {confirmTarget.type ===
-              "all"
-                ? "This permanently deletes the projects you are authorized to manage. The server enforces your company and branch permissions."
-                : `This will permanently delete project ${confirmTarget.label}. This action cannot be undone.`}
+              {`This will permanently delete project ${confirmTarget.label}. This action cannot be undone.`}
             </p>
 
             <div className="mt-6 flex justify-end gap-3">

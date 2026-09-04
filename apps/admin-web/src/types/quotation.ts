@@ -1,0 +1,5 @@
+import { ServiceType } from "./project";
+export type QuotationStatus="draft"|"sent"|"accepted"|"rejected";
+export interface QuotationItem{description:string;quantity:number;rate:number;amount:number}
+export interface Quotation{_id:string;companyId?:string;branchId?:string;quotationNumber:string;customerName:string;customerPhone:string;customerEmail?:string;customerCompany?:string;address:string;city?:string;serviceType:ServiceType;propertyType?:string;area?:number;areaUnit?:"sq_ft"|"sq_m";treatmentDescription?:string;visitFrequency?:string;numberOfVisits?:number;items:QuotationItem[];subtotal:number;discount:number;taxRate:number;taxAmount:number;additionalCharges:number;grandTotal:number;terms?:string;internalNotes?:string;validUntil:string;status:QuotationStatus;createdBy:string;leadId?:string;sentAt?:string;acceptedAt?:string;rejectedAt?:string;convertedProjectId?:string;convertedAt?:string;createdAt:string;updatedAt:string}
+export const QUOTATION_STATUS_LABELS:Record<QuotationStatus,string>={draft:"Draft",sent:"Sent",accepted:"Accepted",rejected:"Rejected"};

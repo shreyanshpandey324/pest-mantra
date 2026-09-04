@@ -1,0 +1,23 @@
+import { NextRequest, NextResponse } from "next/server";
+import { BackendApiError, backendFetch } from "@/lib/backend-client";
+import { CUSTOMER_PORTAL_COOKIE_NAME } from "@/lib/customer-portal-session";
+
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const token = req.cookies.get(CUSTOMER_PORTAL_COOKIE_NAME)?.value;
+  if (!token) return NextResponse.json({ success: false, message: "Customer portal session required" }, { status: 401 });
+
+  try {
+    const { id } = await params;
+    const data = await backendFetch(`/customer-portal/quotations/${encodeURIComponent(id)}/decision`, {
+      method: "PATCH",
+      body: await req.json(),
+      accessToken: token,
+    });
+    return NextResponse.json({ success: true, data });
+  } catch (error) {
+    return NextResponse.json(
+      { success: false, message: error instanceof BackendApiError ? error.message : "Could not update quotation." },
+      { status: error instanceof BackendApiError ? error.statusCode : 502 },
+    );
+  }
+}

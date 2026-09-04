@@ -1,0 +1,37 @@
+Customer Portal Lite — source files created/changed
+
+Backend — new
+apps/backend/src/models/CustomerPortalAccess.ts
+apps/backend/src/utils/customerPortalToken.ts
+apps/backend/src/middleware/customerPortal.middleware.ts
+apps/backend/src/validators/customerPortal.validators.ts
+apps/backend/src/services/customerPortal.service.ts
+apps/backend/src/controllers/customerPortal.controller.ts
+apps/backend/src/routes/customerPortal.routes.ts
+
+Backend — changed
+apps/backend/src/routes/index.ts
+
+Admin Web — new
+apps/admin-web/src/types/customerPortal.ts
+apps/admin-web/src/lib/customer-portal-session.ts
+apps/admin-web/src/components/CustomerPortalLoginForm.tsx
+apps/admin-web/src/components/CustomerPortalDashboard.tsx
+apps/admin-web/src/components/CustomerPortalAccessCard.tsx
+apps/admin-web/src/app/customer/login/page.tsx
+apps/admin-web/src/app/customer/portal/page.tsx
+apps/admin-web/src/app/api/customer-portal/login/route.ts
+apps/admin-web/src/app/api/customer-portal/logout/route.ts
+apps/admin-web/src/app/api/customer-portal/me/route.ts
+apps/admin-web/src/app/api/customer-portal/quotations/[id]/decision/route.ts
+apps/admin-web/src/app/api/customer-portal/access/project/[projectId]/route.ts
+
+Admin Web — changed
+apps/admin-web/src/app/dashboard/projects/[id]/page.tsx
+
+Documentation — new
+CUSTOMER_PORTAL_MODULE.md
+CUSTOMER_PORTAL_CHANGED_FILES.txt
+
+Generated backend output
+apps/backend/dist was rebuilt from current TypeScript source after this feature was added.

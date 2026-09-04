@@ -1,0 +1,12 @@
+apps/backend/src/models/ServiceReminder.ts
+apps/backend/src/validators/serviceReminder.validators.ts
+apps/backend/src/routes/serviceReminder.routes.ts
+apps/backend/src/controllers/serviceReminder.controller.ts
+apps/backend/src/services/serviceReminder.service.ts
+apps/admin-web/src/types/serviceReminder.ts
+apps/admin-web/src/app/api/service-reminders/route.ts
+apps/admin-web/src/app/dashboard/service-reminders/page.tsx
+apps/admin-web/src/components/ServiceReminderBell.tsx
+apps/admin-web/src/components/ServiceRemindersClient.tsx
+SERVICE_REMINDER_SCALING.md
+SERVICE_REMINDER_SCALING_CHANGED_FILES.txt

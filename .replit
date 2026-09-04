@@ -1,0 +1,4 @@
+run = "npm run real"
+
+[deployment]
+run = ["sh", "-c", "npm run real"]

@@ -11,6 +11,7 @@ import {
   verifyRefreshToken,
 } from "../utils/jwt";
 import { env } from "../config/env";
+import { UserRole } from "../models/User";
 
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCK_DURATION_MS = 15 * 60 * 1000;
@@ -23,6 +24,45 @@ interface TokenPair {
 interface RequestMeta {
   userAgent?: string;
   ipAddress?: string;
+}
+
+export type OtpAudience = "admin" | "technician";
+
+function roleAllowedForAudience(role: UserRole, audience: OtpAudience): boolean {
+  if (audience === "admin") {
+    return role === UserRole.SUPER_ADMIN || role === UserRole.OFFICE_ADMIN;
+  }
+
+  return role === UserRole.TECHNICIAN;
+}
+
+async function findOtpUser(phone: string, audience: OtpAudience): Promise<IUser> {
+  const user = await User.findOne({ phone }).select(
+    "+failedLoginAttempts +lockedUntil +tokenVersion"
+  );
+
+  // Keep this deliberately generic so the public eligibility endpoint does
+  // not disclose whether a number exists, is inactive, or is merely not
+  // approved by the Super Admin.
+  const denied = ApiError.forbidden(
+    "This phone number is not approved for OTP login. Contact your administrator."
+  );
+
+  if (!user || !user.isActive || !user.otpLoginEnabled) {
+    throw denied;
+  }
+
+  if (!roleAllowedForAudience(user.role, audience)) {
+    throw denied;
+  }
+
+  if (user.isLocked()) {
+    throw ApiError.forbidden(
+      "This account is temporarily locked. Please try again later."
+    );
+  }
+
+  return user;
 }
 
 function getRequestMeta(req: Request): RequestMeta {
@@ -87,6 +127,55 @@ function parseExpiryToMs(expiry: string): number {
 }
 
 export const authService = {
+  async loginDemoTechnician(req: Request): Promise<{ user: IUser; tokens: TokenPair }> {
+    if (env.isProduction) {
+      throw ApiError.notFound("Not found");
+    }
+
+    const user = await User.findOne({
+      role: UserRole.TECHNICIAN,
+      isActive: true,
+    })
+      .sort({ lastLoginAt: -1, createdAt: 1 })
+      .select("+failedLoginAttempts +lockedUntil +tokenVersion");
+
+    if (!user) {
+      throw ApiError.notFound("No active technician account is available for demo mode.");
+    }
+
+    user.failedLoginAttempts = 0;
+    user.lockedUntil = undefined;
+    user.lastLoginAt = new Date();
+    await user.save();
+
+    const tokens = await issueTokenPair(user, getRequestMeta(req));
+    return { user, tokens };
+  },
+
+  async assertOtpEligibility(phone: string, audience: OtpAudience): Promise<void> {
+    await findOtpUser(phone, audience);
+  },
+
+  async loginWithOtp(
+    phone: string,
+    audience: OtpAudience,
+    req: Request
+  ): Promise<{
+    user: IUser;
+    tokens: TokenPair;
+  }> {
+    const user = await findOtpUser(phone, audience);
+
+    user.failedLoginAttempts = 0;
+    user.lockedUntil = undefined;
+    user.lastLoginAt = new Date();
+    await user.save();
+
+    const tokens = await issueTokenPair(user, getRequestMeta(req));
+
+    return { user, tokens };
+  },
+
   async login(
     phone: string,
     password: string,

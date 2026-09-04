@@ -2,11 +2,13 @@ import { createApp } from "./app";
 import { env } from "./config/env";
 import { connectDB, disconnectDB } from "./config/db";
 import { logger } from "./utils/logger";
+import { startBackgroundJobs, stopBackgroundJobs } from "./services/backgroundJobs.service";
 
 async function bootstrap(): Promise<void> {
   await connectDB();
 
   const app = createApp();
+  startBackgroundJobs(env.backgroundJobsEnabled, env.BACKGROUND_JOB_INTERVAL_MINUTES);
 
   const server = app.listen(env.PORT, () => {
     logger.info(`Pest Mantra API listening on port ${env.PORT} [${env.NODE_ENV}]`);
@@ -15,12 +17,12 @@ async function bootstrap(): Promise<void> {
   const shutdown = async (signal: string): Promise<void> => {
     logger.info(`${signal} received. Shutting down gracefully...`);
     server.close(async () => {
+      stopBackgroundJobs();
       await disconnectDB();
       logger.info("Shutdown complete.");
       process.exit(0);
     });
 
-    // Force exit if graceful shutdown hangs.
     setTimeout(() => {
       logger.error("Forced shutdown after timeout");
       process.exit(1);

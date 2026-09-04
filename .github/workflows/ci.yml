@@ -1,0 +1,28 @@
+name: Pest Mantra CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Audit production dependencies
+        run: npm run audit:prod
+      - name: Deployment and source verification
+        run: npm run verify:deployment && npm run verify:api-contracts && npm run verify:source
+      - name: Typecheck all workspaces
+        run: npm run verify:types
+      - name: Build all workspaces
+        run: npm run verify:build
+      - name: Backend tests
+        run: npm test

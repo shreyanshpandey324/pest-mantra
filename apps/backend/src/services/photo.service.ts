@@ -97,8 +97,13 @@ export const photoService = {
       );
     }
 
+    const photoId =
+      new mongoose.Types.ObjectId();
+
     const photo =
       await ProjectPhoto.create({
+        _id: photoId,
+
         companyId:
           project.companyId,
 
@@ -112,28 +117,12 @@ export const photoService = {
 
         photoType,
 
-        /*
-         * Temporary value. It is replaced
-         * immediately after Mongo creates
-         * the document because we need the
-         * generated photo _id.
-         */
-        fileUrl: "",
+        fileUrl:
+          `/api/v1/projects/${project._id.toString()}/photos/${photoId.toString()}`,
 
         storagePath:
           safeStoragePath,
       });
-
-    /*
-     * Authenticated API URL.
-     *
-     * This does NOT expose the filesystem
-     * path.
-     */
-    photo.fileUrl =
-      `/api/v1/projects/${project._id.toString()}/photos/${photo._id.toString()}`;
-
-    await photo.save();
 
     return sanitizePhoto(photo);
   },

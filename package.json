@@ -19,9 +19,29 @@
     "typecheck:web": "npm run typecheck --workspace=@pest-mantra/admin-web",
     "typecheck:technician": "npm run typecheck --workspace=@pest-mantra/technician-app",
     "seed:superadmin": "npm run seed:superadmin --workspace=@pest-mantra/backend",
-    "start:web": "npm run start --workspace=@pest-mantra/admin-web"
+    "start:web": "npm run start --workspace=@pest-mantra/admin-web",
+    "start:technician": "npm run start:local --workspace=@pest-mantra/technician-app",
+    "seed:technicians": "npm run seed:technicians --workspace=@pest-mantra/backend",
+    "otp:bootstrap": "npm run otp:bootstrap --workspace=@pest-mantra/backend",
+    "verify:source": "node scripts/verify-source.mjs",
+    "verify:api-contracts": "node scripts/verify-api-contracts.mjs",
+    "verify:deployment": "node scripts/verify-deployment.mjs",
+    "verify:types": "npm run typecheck:backend && npm run typecheck:web && npm run typecheck:technician",
+    "verify:build": "npm run build:backend && npm run build:web && npm run build:technician",
+    "verify": "npm run verify:deployment && npm run verify:api-contracts && npm run verify:source && npm run verify:types && npm run verify:build",
+    "audit:prod": "npm audit --omit=dev --audit-level=high",
+    "seed:staff": "npm run seed:staff --workspace=@pest-mantra/backend",
+    "test": "npm run test --workspace=@pest-mantra/backend",
+    "verify:commercial": "npm run verify:deployment && npm run verify:api-contracts && npm run verify:source && npm run verify:types && npm run test",
+    "smoke:live": "node scripts/smoke-live.mjs",
+    "setup:real": "node scripts/setup-real.mjs",
+    "real": "node scripts/run-real.mjs"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=24.20.0 <25"
+  },
+  "dependencies": {
+    "install": "^0.13.0",
+    "npm": "^12.0.2"
   }
 }

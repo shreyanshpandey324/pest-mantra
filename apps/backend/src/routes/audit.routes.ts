@@ -1,0 +1,10 @@
+import { Router } from "express";
+import { auditController } from "../controllers/audit.controller";
+import { authenticate, requireRole } from "../middleware/auth.middleware";
+import { validateQuery } from "../middleware/validate.middleware";
+import { UserRole } from "../models/User";
+import { listAuditLogsSchema } from "../validators/audit.validators";
+const router = Router();
+router.use(authenticate, requireRole(UserRole.SUPER_ADMIN, UserRole.OFFICE_ADMIN));
+router.get("/", validateQuery(listAuditLogsSchema), auditController.list);
+export default router;

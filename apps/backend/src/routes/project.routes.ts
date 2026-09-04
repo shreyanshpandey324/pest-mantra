@@ -22,6 +22,9 @@ import {
   assignProjectSchema,
   updateStatusSchema,
   listProjectsQuerySchema,
+  rescheduleProjectSchema,
+  failedVisitSchema,
+  reassignProjectSchema,
 } from "../validators/project.validators";
 
 import {
@@ -122,6 +125,37 @@ router.patch(
   projectController.assign
 );
 
+
+/* Zero-Chaos exception workflows */
+router.patch(
+  "/:id/acknowledge-assignment",
+  authenticate,
+  requireRole(UserRole.TECHNICIAN),
+  projectController.acknowledgeAssignment
+);
+
+router.patch(
+  "/:id/reschedule-request",
+  authenticate,
+  validateBody(rescheduleProjectSchema),
+  projectController.requestReschedule
+);
+
+router.patch(
+  "/:id/failed-visit",
+  authenticate,
+  validateBody(failedVisitSchema),
+  projectController.failedVisit
+);
+
+router.patch(
+  "/:id/reassign",
+  authenticate,
+  requireRole(UserRole.SUPER_ADMIN, UserRole.OFFICE_ADMIN),
+  validateBody(reassignProjectSchema),
+  projectController.reassign
+);
+
 /*
  * Update Project Status
  *
@@ -138,24 +172,6 @@ router.patch(
     updateStatusSchema
   ),
   projectController.updateStatus
-);
-
-/*
- * Delete ALL Projects
- *
- * TESTING ONLY.
- *
- * Kept because it already exists in
- * the current controller.
- */
-router.delete(
-  "/delete-all",
-  authenticate,
-  requireRole(
-    UserRole.SUPER_ADMIN,
-    UserRole.OFFICE_ADMIN
-  ),
-  projectController.deleteAll
 );
 
 /*
@@ -211,16 +227,15 @@ router.get(
 );
 
 /*
- * NOTE:
+ * Secure Project Photo File
  *
- * Secure direct-photo serving is intentionally
- * not registered yet because the current
- * photo.controller.ts supplied earlier does
- * not contain photoController.file().
- *
- * We will add that securely in the photo
- * controller/service step instead of creating
- * a route to a non-existent controller method.
+ * Authentication + project/company/technician
+ * visibility are enforced before the file is sent.
  */
+router.get(
+  "/:id/photos/:photoId",
+  authenticate,
+  photoController.file
+);
 
 export default router;

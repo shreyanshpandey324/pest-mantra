@@ -1,0 +1,14 @@
+import { Router } from "express";
+import { customerAccountController } from "../controllers/customerAccount.controller";
+import { authenticate, requireRole } from "../middleware/auth.middleware";
+import { validateBody } from "../middleware/validate.middleware";
+import { UserRole } from "../models/User";
+import { addCustomerSiteSchema, createCustomerAccountSchema, updateCustomerAccountSchema } from "../validators/customerAccount.validators";
+const router = Router();
+router.use(authenticate, requireRole(UserRole.SUPER_ADMIN, UserRole.OFFICE_ADMIN));
+router.get("/", customerAccountController.list);
+router.post("/", validateBody(createCustomerAccountSchema), customerAccountController.create);
+router.get("/:id", customerAccountController.get);
+router.patch("/:id", validateBody(updateCustomerAccountSchema), customerAccountController.update);
+router.post("/:id/sites", validateBody(addCustomerSiteSchema), customerAccountController.addSite);
+export default router;

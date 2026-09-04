@@ -3,7 +3,6 @@
 import { useRef, useState } from "react";
 import { JobPhoto, PhotoType } from "@/types/job";
 import { ui } from "@/lib/ui-classes";
-import { toAbsolutePhotoUrl } from "@/lib/photo-url";
 
 interface PhotoUploadSectionProps {
   jobId: string;
@@ -56,10 +55,10 @@ export function PhotoUploadSection({ jobId, photoType, photos, onUploaded }: Pho
       {matchingPhotos.length > 0 && (
         <div className="mb-3 grid grid-cols-3 gap-2">
           {matchingPhotos.map((photo) => (
-            // eslint-disable-next-line @next/next/no-img-element -- photos are served from the backend's own /uploads path, not optimizable via next/image without extra remote-pattern config for a same-origin-proxied, dynamic-per-job URL
+            // eslint-disable-next-line @next/next/no-img-element -- authenticated job photos are streamed through the same-origin BFF route
             <img
               key={photo._id}
-              src={toAbsolutePhotoUrl(photo.fileUrl)}
+              src={`/api/jobs/${encodeURIComponent(jobId)}/photos/${encodeURIComponent(photo._id)}`}
               alt={`${label} photo`}
               className="aspect-square w-full rounded-lg border border-border-default object-cover"
             />

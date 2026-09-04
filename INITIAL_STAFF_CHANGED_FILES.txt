@@ -1,0 +1,13 @@
+Initial staff bootstrap upgrade
+
+Added:
+- apps/backend/src/scripts/seedInitialStaff.ts
+- INITIAL_LOGIN_ACCOUNTS.md
+
+Updated:
+- apps/backend/src/config/env.ts
+- apps/backend/.env.example
+- apps/backend/package.json
+- package.json
+- apps/backend/src/scripts/seedSuperAdmin.ts
+- CURRENT_LOGIN_MODE.md

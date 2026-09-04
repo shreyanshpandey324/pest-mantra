@@ -10,10 +10,16 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return token;
   }
 
+  const params = new URLSearchParams();
   const status = req.nextUrl.searchParams.get("status");
-  const query = status
-    ? `?status=${encodeURIComponent(status)}`
-    : "";
+  const date = req.nextUrl.searchParams.get("date");
+  const search = req.nextUrl.searchParams.get("search");
+
+  if (status) params.set("status", status);
+  if (date) params.set("date", date);
+  if (search) params.set("search", search);
+
+  const query = params.size > 0 ? `?${params.toString()}` : "";
 
   try {
     const data = await backendFetch<{ projects: Project[] }>(

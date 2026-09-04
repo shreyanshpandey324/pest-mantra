@@ -25,6 +25,9 @@ import {
   AssignProjectInput,
   UpdateStatusInput,
   ListProjectsQuery,
+  RescheduleProjectInput,
+  FailedVisitInput,
+  ReassignProjectInput,
 } from "../validators/project.validators";
 
 import {
@@ -197,6 +200,27 @@ export const projectController = {
       );
     }
   ),
+
+
+  acknowledgeAssignment: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const project = await projectService.acknowledgeAssignment(req.params.id, getCallerScope(req));
+    sendSuccess(res, 200, "Assignment acknowledged", { project });
+  }),
+
+  requestReschedule: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const project = await projectService.requestReschedule(req.params.id, req.body as RescheduleProjectInput, getCallerScope(req));
+    sendSuccess(res, 200, "Reschedule request recorded", { project });
+  }),
+
+  failedVisit: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const project = await projectService.recordFailedVisit(req.params.id, req.body as FailedVisitInput, getCallerScope(req));
+    sendSuccess(res, 200, "Failed visit recorded", { project });
+  }),
+
+  reassign: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const project = await projectService.reassignTechnician(req.params.id, req.body as ReassignProjectInput, getCallerScope(req));
+    sendSuccess(res, 200, "Job handed over", { project });
+  }),
 
   /*
   |--------------------------------------------------------------------------

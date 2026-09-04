@@ -20,7 +20,20 @@ import {
 
 import {
   ProjectPhoto,
+  PhotoType,
 } from "../models/ProjectPhoto";
+
+import {
+  ServiceReport,
+  ServiceReportStatus,
+} from "../models/ServiceReport";
+import { ServiceReminder, ServiceReminderStatus } from "../models/ServiceReminder";
+import { Invoice } from "../models/Invoice";
+import { Expense } from "../models/Expense";
+import { Feedback } from "../models/Feedback";
+import { Complaint } from "../models/Complaint";
+import { ServiceContract } from "../models/ServiceContract";
+import { Quotation } from "../models/Quotation";
 
 import {
   TechnicianProfile,
@@ -48,11 +61,16 @@ import {
   UPLOAD_DIR,
 } from "../middleware/upload.middleware";
 
+import { customerAccountService } from "./customerAccount.service";
+
 import {
   CreateProjectInput,
   AssignProjectInput,
   UpdateStatusInput,
   ListProjectsQuery,
+  RescheduleProjectInput,
+  FailedVisitInput,
+  ReassignProjectInput,
   ALLOWED_STATUS_TRANSITIONS,
 } from "../validators/project.validators";
 
@@ -61,6 +79,10 @@ import {
 | Tenant / authorization helpers
 |--------------------------------------------------------------------------
 */
+
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
 function tenantFilter(
   scope: CallerScope
@@ -398,6 +420,10 @@ async function cleanupProjectData(
     ProjectPhoto.deleteMany(
       projectFilter
     ),
+
+    ServiceReport.deleteMany(
+      projectFilter
+    ),
   ]);
 
   /*
@@ -407,6 +433,59 @@ async function cleanupProjectData(
   await removePhotoFiles(
     storagePaths
   );
+}
+
+/**
+ * A project may only be hard-deleted while it is still disposable. Financial,
+ * customer, contract, and finalized-service records are business history and
+ * must never be left pointing at a missing project.
+ */
+async function assertProjectsCanBeDeleted(
+  projects: Array<Pick<IProject, "_id" | "status">>
+): Promise<void> {
+  if (
+    projects.some(
+      (project) =>
+        ![
+          ProjectStatus.NEW,
+          ProjectStatus.CANCELLED,
+        ].includes(project.status)
+    )
+  ) {
+    throw ApiError.conflict(
+      "Only new or cancelled projects can be deleted. Cancel active work instead of removing its history."
+    );
+  }
+
+  const projectIds = projects.map(
+    (project) => project._id
+  );
+
+  const linkedRecords = await Promise.all([
+    Invoice.exists({ projectId: { $in: projectIds } }),
+    Expense.exists({ projectId: { $in: projectIds } }),
+    Feedback.exists({ projectId: { $in: projectIds } }),
+    Complaint.exists({ projectId: { $in: projectIds } }),
+    ServiceContract.exists({
+      "visits.projectId": { $in: projectIds },
+    }),
+    Quotation.exists({
+      convertedProjectId: { $in: projectIds },
+    }),
+    ServiceReminder.exists({
+      $or: [
+        { sourceProjectId: { $in: projectIds } },
+        { nextProjectId: { $in: projectIds } },
+      ],
+    }),
+    ServiceReport.exists({ projectId: { $in: projectIds } }),
+  ]);
+
+  if (linkedRecords.some(Boolean)) {
+    throw ApiError.conflict(
+      "This project has linked report, finance, contract, reminder, quotation, feedback, or complaint records. Cancel or archive it to preserve business history."
+    );
+  }
 }
 
 /*
@@ -472,9 +551,22 @@ export const projectService = {
         await generateProjectCode();
 
       try {
+        const projectInput = {
+          ...input,
+          siteLocation: input.siteLocation
+            ? {
+                latitude: input.siteLocation.latitude,
+                longitude: input.siteLocation.longitude,
+                capturedAt: input.siteLocation.capturedAt
+                  ? new Date(input.siteLocation.capturedAt)
+                  : new Date(),
+              }
+            : undefined,
+        };
+
         const project =
           await Project.create({
-            ...input,
+            ...projectInput,
 
             companyId,
             branchId,
@@ -498,6 +590,24 @@ export const projectService = {
           "Project created",
           companyId
         );
+
+        // Keep the enterprise Customer Master useful without forcing office users
+        // to maintain the same customer twice. A failure here must never block
+        // the operational project that was already created successfully.
+        try {
+          await customerAccountService.syncFromProject({
+            companyId,
+            branchId,
+            name: project.customerName,
+            phone: project.customerPhone,
+            address: project.address,
+            latitude: project.siteLocation?.latitude,
+            longitude: project.siteLocation?.longitude,
+            createdBy: scope.userId,
+          });
+        } catch {
+          // Customer Master synchronization is best-effort.
+        }
 
         return project;
       } catch (err) {
@@ -557,6 +667,16 @@ export const projectService = {
         query.status;
     }
 
+    if (query.search) {
+      const search = escapeRegex(query.search);
+      filter.$or = [
+        { projectCode: { $regex: search, $options: "i" } },
+        { customerName: { $regex: search, $options: "i" } },
+        { customerPhone: { $regex: search, $options: "i" } },
+        { address: { $regex: search, $options: "i" } },
+      ];
+    }
+
     if (query.date) {
       const start =
         new Date(
@@ -595,10 +715,15 @@ export const projectService = {
 
     return Project.find(
       filter
-    ).sort({
-      scheduledDate: 1,
-      createdAt: -1,
-    });
+    )
+      .populate(
+        "assignedTechnicianId",
+        "name phone email branchId"
+      )
+      .sort({
+        scheduledDate: 1,
+        createdAt: -1,
+      });
   },
 
   /*
@@ -959,8 +1084,15 @@ export const projectService = {
             scheduledTimeSlot:
               input.scheduledTimeSlot,
 
+            priority:
+              input.priority ?? project.priority,
+
             status:
               ProjectStatus.ASSIGNED,
+          },
+          $unset: {
+            assignmentAcknowledgedAt: 1,
+            assignmentAcknowledgedBy: 1,
           },
         },
         {
@@ -979,10 +1111,123 @@ export const projectService = {
       ProjectStatus.NEW,
       ProjectStatus.ASSIGNED,
       scope.userId,
-      `Assigned to technician ${technician.name}`,
+      `Assigned to technician ${technician.name} · alert level ${(input.priority ?? project.priority) === "urgent" ? "High" : (input.priority ?? project.priority) === "high" ? "Medium" : "Normal"}`,
       updated.companyId
     );
 
+    await updated.populate("assignedTechnicianId", "name phone email branchId");
+    return updated;
+  },
+
+  async acknowledgeAssignment(projectId: string, scope: CallerScope): Promise<IProject> {
+    if (scope.role !== UserRole.TECHNICIAN) {
+      throw ApiError.forbidden("Only the assigned technician can acknowledge a job");
+    }
+
+    const project = await this.getProjectById(projectId, scope);
+    if (!project.assignedTechnicianId || String((project.assignedTechnicianId as any)._id ?? project.assignedTechnicianId) !== scope.userId) {
+      throw ApiError.forbidden("This job is not assigned to you");
+    }
+
+    if (project.assignmentAcknowledgedAt) return project;
+
+    const updated = await Project.findOneAndUpdate(
+      { _id: project._id, assignedTechnicianId: new mongoose.Types.ObjectId(scope.userId), ...tenantFilter(scope) },
+      { $set: { assignmentAcknowledgedAt: new Date(), assignmentAcknowledgedBy: new mongoose.Types.ObjectId(scope.userId) } },
+      { new: true }
+    ).populate("assignedTechnicianId", "name phone email branchId");
+
+    if (!updated) throw ApiError.notFound("Project not found");
+    await recordHistory(updated._id, updated.status, updated.status, scope.userId, "Technician acknowledged assignment", updated.companyId);
+    return updated;
+  },
+
+  /*
+  |--------------------------------------------------------------------------
+  | ZERO-CHAOS FIELD EXCEPTIONS
+  |--------------------------------------------------------------------------
+  */
+
+  async requestReschedule(projectId: string, input: RescheduleProjectInput, scope: CallerScope): Promise<IProject> {
+    const project = await this.getProjectById(projectId, scope);
+    if ([ProjectStatus.COMPLETED, ProjectStatus.CANCELLED].includes(project.status)) {
+      throw ApiError.badRequest("Closed jobs cannot be rescheduled");
+    }
+
+    const update: Record<string, unknown> = {
+      rescheduleRequestedAt: new Date(),
+      rescheduleReason: input.reason,
+      rescheduleRequestedBy: new mongoose.Types.ObjectId(scope.userId),
+    };
+    if (input.suggestedDate) update.rescheduleSuggestedDate = new Date(input.suggestedDate);
+    if (input.suggestedTimeSlot) update.rescheduleSuggestedTimeSlot = input.suggestedTimeSlot;
+
+    const updated = await Project.findOneAndUpdate(
+      { _id: project._id, ...tenantFilter(scope) },
+      { $set: update },
+      { new: true }
+    ).populate("assignedTechnicianId", "name phone email branchId");
+    if (!updated) throw ApiError.notFound("Project not found");
+
+    await recordHistory(updated._id, project.status, project.status, scope.userId, `Reschedule requested: ${input.reason}`, updated.companyId);
+    return updated;
+  },
+
+  async recordFailedVisit(projectId: string, input: FailedVisitInput, scope: CallerScope): Promise<IProject> {
+    const project = await this.getProjectById(projectId, scope);
+    if ([ProjectStatus.COMPLETED, ProjectStatus.CANCELLED].includes(project.status)) {
+      throw ApiError.badRequest("Closed jobs cannot be marked as failed visits");
+    }
+
+    const updated = await Project.findOneAndUpdate(
+      { _id: project._id, ...tenantFilter(scope) },
+      { $set: {
+        failedVisitAt: new Date(),
+        failedVisitReason: input.reason,
+        failedVisitNotes: input.notes,
+        failedVisitBy: new mongoose.Types.ObjectId(scope.userId),
+        rescheduleRequestedAt: new Date(),
+        rescheduleReason: `Failed visit: ${input.reason.replaceAll("_", " ")}${input.notes ? ` — ${input.notes}` : ""}`,
+        rescheduleRequestedBy: new mongoose.Types.ObjectId(scope.userId),
+      } },
+      { new: true }
+    ).populate("assignedTechnicianId", "name phone email branchId");
+    if (!updated) throw ApiError.notFound("Project not found");
+
+    await recordHistory(updated._id, project.status, project.status, scope.userId, `Failed visit: ${input.reason}${input.notes ? ` — ${input.notes}` : ""}`, updated.companyId);
+    return updated;
+  },
+
+  async reassignTechnician(projectId: string, input: ReassignProjectInput, scope: CallerScope): Promise<IProject> {
+    if (scope.role !== UserRole.SUPER_ADMIN && scope.role !== UserRole.OFFICE_ADMIN) {
+      throw ApiError.forbidden("Only admins can hand over jobs");
+    }
+    if (!mongoose.Types.ObjectId.isValid(input.technicianId)) throw ApiError.badRequest("Invalid technician id");
+    const project = await this.getProjectById(projectId, scope);
+    if ([ProjectStatus.IN_PROGRESS, ProjectStatus.COMPLETED, ProjectStatus.CANCELLED].includes(project.status)) {
+      throw ApiError.badRequest("Only waiting or en-route jobs can be handed over");
+    }
+
+    const techFilter: FilterQuery<typeof User> = { _id: new mongoose.Types.ObjectId(input.technicianId), role: UserRole.TECHNICIAN, isActive: true };
+    if (scope.role !== UserRole.SUPER_ADMIN) {
+      techFilter.companyId = new mongoose.Types.ObjectId(scope.companyId!);
+      techFilter.branchId = new mongoose.Types.ObjectId(scope.branchId!);
+    }
+    const technician = await User.findOne(techFilter).select("_id name companyId branchId");
+    if (!technician) throw ApiError.badRequest("Replacement technician not found or outside your scope");
+
+    const previousStatus = project.status;
+    const nextStatus = previousStatus === ProjectStatus.NEW ? ProjectStatus.ASSIGNED : ProjectStatus.ASSIGNED;
+    const updated = await Project.findOneAndUpdate(
+      { _id: project._id, ...tenantFilter(scope) },
+      {
+        $set: { assignedTechnicianId: technician._id, assignedBy: new mongoose.Types.ObjectId(scope.userId), assignedAt: new Date(), status: nextStatus },
+        $unset: { rescheduleRequestedAt: 1, rescheduleReason: 1, rescheduleSuggestedDate: 1, rescheduleSuggestedTimeSlot: 1, rescheduleRequestedBy: 1, failedVisitAt: 1, failedVisitReason: 1, failedVisitNotes: 1, failedVisitBy: 1, assignmentAcknowledgedAt: 1, assignmentAcknowledgedBy: 1 },
+      },
+      { new: true }
+    ).populate("assignedTechnicianId", "name phone email branchId");
+    if (!updated) throw ApiError.notFound("Project not found");
+    await recordHistory(updated._id, previousStatus, nextStatus, scope.userId, `Handover to ${technician.name}: ${input.reason}`, updated.companyId);
     return updated;
   },
 
@@ -1022,6 +1267,81 @@ export const projectService = {
     const previousStatus =
       project.status;
 
+    /*
+     * Enforce technician workflow requirements on the backend too.
+     * Frontend disabled buttons are UX only and can be bypassed by
+     * direct API calls, so required job evidence is verified here.
+     */
+    if (
+      input.status ===
+      ProjectStatus.IN_PROGRESS
+    ) {
+      const beforePhotoExists =
+        await ProjectPhoto.exists({
+          projectId: project._id,
+          photoType: PhotoType.BEFORE,
+        });
+
+      if (!beforePhotoExists) {
+        throw ApiError.badRequest(
+          "At least one before photo is required before treatment can start"
+        );
+      }
+    }
+
+    if (
+      input.status ===
+      ProjectStatus.COMPLETED
+    ) {
+      const afterPhotoExists =
+        await ProjectPhoto.exists({
+          projectId: project._id,
+          photoType: PhotoType.AFTER,
+        });
+
+      if (!afterPhotoExists) {
+        throw ApiError.badRequest(
+          "At least one after photo is required before completing the job"
+        );
+      }
+
+      if (!input.paymentMethod) {
+        throw ApiError.badRequest(
+          "Payment method is required before completing the job"
+        );
+      }
+
+      if (input.customerConfirmed !== true) {
+        throw ApiError.badRequest(
+          "Customer confirmation is required before completing the job"
+        );
+      }
+
+      const serviceReport =
+        await ServiceReport.findOne({
+          projectId: project._id,
+          status: ServiceReportStatus.DRAFT,
+        }).select(
+          "_id treatmentSummary customerSignedBy customerSignatureDataUrl beforePhotoIds afterPhotoIds"
+        );
+
+      if (!serviceReport) {
+        throw ApiError.badRequest(
+          "Save the signed service report before completing the job"
+        );
+      }
+
+      if (
+        !serviceReport.treatmentSummary ||
+        !serviceReport.customerSignedBy ||
+        !serviceReport.customerSignatureDataUrl
+      ) {
+        throw ApiError.badRequest(
+          "Treatment summary and customer signature are required before completing the job"
+        );
+      }
+    }
+
     const setFields: Record<
       string,
       unknown
@@ -1041,8 +1361,14 @@ export const projectService = {
       input.status ===
       ProjectStatus.COMPLETED
     ) {
-      setFields.completedAt =
+      const completedAt =
         new Date();
+
+      setFields.completedAt =
+        completedAt;
+
+      setFields.customerConfirmedAt =
+        completedAt;
     }
 
     if (
@@ -1050,6 +1376,9 @@ export const projectService = {
       ProjectStatus.CANCELLED
     ) {
       setFields.completedAt =
+        undefined;
+
+      setFields.customerConfirmedAt =
         undefined;
     }
 
@@ -1087,6 +1416,56 @@ export const projectService = {
       input.remarks,
       updated.companyId
     );
+
+    if (
+      input.status ===
+      ProjectStatus.COMPLETED
+    ) {
+      const finalizedAt =
+        updated.completedAt ??
+        new Date();
+
+      const finalizedReport = await ServiceReport.findOneAndUpdate(
+        {
+          projectId: updated._id,
+          status: ServiceReportStatus.DRAFT,
+        },
+        {
+          $set: {
+            status: ServiceReportStatus.FINALIZED,
+            paymentMethod: updated.paymentMethod,
+            completedAt: finalizedAt,
+            finalizedAt,
+          },
+        },
+        { new: true }
+      );
+
+      // A technician can recommend the next service date while preparing the
+      // signed service report. Finalizing the job turns that recommendation
+      // into one durable reminder shared by the office and customer portal.
+      if (finalizedReport?.nextServiceDate) {
+        await ServiceReminder.findOneAndUpdate(
+          { sourceReportId: finalizedReport._id },
+          {
+            $set: {
+              companyId: finalizedReport.companyId,
+              branchId: finalizedReport.branchId,
+              sourceProjectId: updated._id,
+              customerName: finalizedReport.customerName,
+              customerPhone: finalizedReport.customerPhone,
+              address: finalizedReport.address,
+              serviceType: finalizedReport.serviceType,
+              dueDate: finalizedReport.nextServiceDate,
+              status: ServiceReminderStatus.ACTIVE,
+            },
+            $setOnInsert: { sourceReportId: finalizedReport._id },
+            $unset: { adminReadAt: 1, customerReadAt: 1 },
+          },
+          { upsert: true, new: true, setDefaultsOnInsert: true }
+        );
+      }
+    }
 
     return updated;
   },
@@ -1135,6 +1514,10 @@ export const projectService = {
       );
     }
 
+    await assertProjectsCanBeDeleted([
+      project,
+    ]);
+
     const deleted =
       await Project.deleteOne({
         _id:
@@ -1176,12 +1559,16 @@ export const projectService = {
 
     const filter: FilterQuery<IProject> = tenantFilter(scope);
 
-    const projects = await Project.find(filter).select("_id companyId");
+    const projects = await Project.find(filter).select("_id companyId status");
     const projectIds = projects.map((project) => project._id);
 
     if (projectIds.length === 0) {
       return 0;
     }
+
+    await assertProjectsCanBeDeleted(
+      projects
+    );
 
     const deleted = await Project.deleteMany(filter);
 

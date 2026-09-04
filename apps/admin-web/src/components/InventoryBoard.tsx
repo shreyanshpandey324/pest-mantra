@@ -25,6 +25,16 @@ export function InventoryBoard({ initialChemicals, initialOpenCheckouts }: Inven
     () => chemicals.filter((c) => c.currentStock <= c.lowStockThreshold).length,
     [chemicals]
   );
+  const restockSuggestions = useMemo(
+    () => chemicals
+      .filter((c) => c.currentStock <= c.lowStockThreshold)
+      .map((c) => ({
+        chemical: c,
+        suggestedQuantity: Math.max(c.lowStockThreshold, Number((c.lowStockThreshold * 2 - c.currentStock).toFixed(2))),
+      }))
+      .sort((a, b) => (a.chemical.currentStock / Math.max(1, a.chemical.lowStockThreshold)) - (b.chemical.currentStock / Math.max(1, b.chemical.lowStockThreshold))),
+    [chemicals],
+  );
 
   function handleChemicalCreated(chemical: Chemical) {
     setChemicals((prev) => [...prev, chemical].sort((a, b) => a.name.localeCompare(b.name)));
@@ -112,6 +122,33 @@ export function InventoryBoard({ initialChemicals, initialOpenCheckouts }: Inven
           </button>
         </div>
       </section>
+
+      {restockSuggestions.length > 0 ? (
+        <section aria-label="Restock intelligence" className={`${ui.card} overflow-hidden`}>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-default bg-warning/5 px-5 py-4">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-warning">Restock intelligence</p>
+              <p className="mt-1 text-sm text-ink-muted">Suggested quantities restore each low-stock chemical to roughly twice its alert level.</p>
+            </div>
+            <span className={`${ui.badge} border-warning/30 text-warning`}>{restockSuggestions.length} action{restockSuggestions.length === 1 ? "" : "s"}</span>
+          </div>
+          <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
+            {restockSuggestions.map(({ chemical, suggestedQuantity }) => (
+              <article key={chemical._id} className="rounded-xl border border-border-default bg-surface-2 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-ink">{chemical.name}</h3>
+                    <p className="mt-1 text-xs text-ink-muted">Current {chemical.currentStock} {UNIT_LABELS[chemical.unit]} · alert at {chemical.lowStockThreshold}</p>
+                  </div>
+                  <span className="text-xs font-semibold text-danger">LOW</span>
+                </div>
+                <p className="mt-3 text-xs text-ink-faint">Suggested reorder</p>
+                <p className="mt-0.5 font-mono text-lg font-semibold text-ink">+{suggestedQuantity} {UNIT_LABELS[chemical.unit]}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <section aria-label="Stock levels">
         <h2 className="mb-3 text-[15px] font-semibold">Stock Levels</h2>

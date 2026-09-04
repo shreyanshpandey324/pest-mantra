@@ -1,31 +1,26 @@
 @import "tailwindcss";
 
-/* ==========================================================================
-   Pest Mantra Technician App — Tailwind v4 theme tokens
-   Same brand tokens as admin-web (dark, hazard-orange accent) for a
-   consistent identity across both apps — this is a separate Next.js
-   app, not a shared package, so the tokens are duplicated here
-   rather than imported; keep the two files in sync by hand if the
-   palette ever changes.
-   ========================================================================== */
+/* Technician UI: bright, high-contrast and thumb-friendly for outdoor use. */
 @theme {
-  --color-canvas: #0f1115;
-  --color-surface: #171a21;
-  --color-surface-2: #1f232c;
-  --color-border-default: #2a2f3a;
-  --color-border-strong: #3a4150;
+  --color-canvas: #f3f7f5;
+  --color-surface: #ffffff;
+  --color-surface-2: #f6faf8;
+  --color-border-default: #dde7e2;
+  --color-border-strong: #c2d2ca;
 
-  --color-ink: #f2f1ed;
-  --color-ink-muted: #9aa1ac;
-  --color-ink-faint: #6b7280;
+  --color-ink: #17211c;
+  --color-ink-muted: #5c6b63;
+  --color-ink-faint: #89968f;
 
-  --color-accent: #ff7a1a;
-  --color-accent-hover: #ff8f3d;
-  --color-accent-ink: #171a21;
+  --color-accent: #1ea56a;
+  --color-accent-hover: #168856;
+  --color-accent-ink: #ffffff;
+  --color-accent-soft: #eaf8f1;
+  --color-accent-strong: #137a4f;
 
-  --color-success: #3ddc84;
-  --color-danger: #ff5c5c;
-  --color-warning: #ffc94d;
+  --color-success: #1b9a61;
+  --color-danger: #d34b52;
+  --color-warning: #b8790a;
 
   --font-sans: "Inter", "Segoe UI", system-ui, sans-serif;
   --font-display: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
@@ -40,7 +35,8 @@ body {
 
 body {
   @apply bg-canvas text-ink font-sans antialiased;
-  color-scheme: dark;
+  color-scheme: light;
+  background-image: linear-gradient(180deg, #eef7f2 0, #f4f7f5 11rem, #f4f7f5 100%);
 }
 
 h1,
@@ -48,6 +44,7 @@ h2,
 h3,
 h4 {
   @apply font-display font-semibold;
+  letter-spacing: -0.015em;
 }
 
 :focus-visible {
@@ -62,4 +59,9 @@ h4 {
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
   }
+}
+
+@keyframes priorityPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.00), 0 12px 35px rgba(239, 68, 68, 0.06); }
+  50% { box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.07), 0 16px 40px rgba(239, 68, 68, 0.12); }
 }

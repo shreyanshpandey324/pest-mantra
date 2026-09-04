@@ -34,6 +34,18 @@ export const STATUS_LABELS: Record<ProjectStatus, string> = {
   [ProjectStatus.CANCELLED]: "Cancelled",
 };
 
+export enum ProjectPriority {
+  NORMAL = "normal",
+  HIGH = "high",
+  URGENT = "urgent",
+}
+
+export const PRIORITY_LABELS: Record<ProjectPriority, string> = {
+  [ProjectPriority.NORMAL]: "Normal",
+  [ProjectPriority.HIGH]: "Medium",
+  [ProjectPriority.URGENT]: "High",
+};
+
 export enum PaymentMethod {
   CASH = "cash",
   UPI = "upi",
@@ -69,12 +81,16 @@ export interface Project {
   address: string;
 
   serviceType: ServiceType;
+  priority?: ProjectPriority;
+  siteLocation?: { latitude: number; longitude: number; capturedAt?: string };
   status: ProjectStatus;
 
   assignedTechnicianId?: AssignedTechnician;
 
   assignedBy?: string;
   assignedAt?: string;
+  assignmentAcknowledgedAt?: string;
+  assignmentAcknowledgedBy?: string;
 
   scheduledDate?: string;
   scheduledTimeSlot?: string;
@@ -115,6 +131,20 @@ export interface TechnicianListItem {
     | "en_route"
     | "on_site"
     | "busy";
+
+  lastKnownLocation?: {
+    latitude: number;
+    longitude: number;
+    recordedAt?: string;
+  };
+
+  performance?: {
+    todayAssignedJobs: number;
+    completedToday: number;
+    totalCompletedJobs: number;
+    averageRating?: number;
+    distanceTodayKm: number;
+  };
 }
 
 export interface EditTechnicianFormData {

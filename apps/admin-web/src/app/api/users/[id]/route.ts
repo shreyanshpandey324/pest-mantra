@@ -50,7 +50,7 @@ export async function PATCH(
     return NextResponse.json({
       success: true,
       data,
-      message: "Technician updated successfully",
+      message: "User updated successfully",
     });
   } catch (err) {
     return NextResponse.json(
@@ -59,7 +59,7 @@ export async function PATCH(
         message:
           err instanceof BackendApiError
             ? err.message
-            : "Unable to update technician.",
+            : "Unable to update user.",
         details:
           err instanceof BackendApiError
             ? err.details
@@ -95,7 +95,7 @@ export async function DELETE(
 
     return NextResponse.json({
       success: true,
-      message: "Technician deleted successfully",
+      message: "User deactivated successfully",
     });
   } catch (err) {
     return NextResponse.json(
@@ -104,7 +104,7 @@ export async function DELETE(
         message:
           err instanceof BackendApiError
             ? err.message
-            : "Unable to delete technician.",
+            : "Unable to deactivate user.",
         details:
           err instanceof BackendApiError
             ? err.details

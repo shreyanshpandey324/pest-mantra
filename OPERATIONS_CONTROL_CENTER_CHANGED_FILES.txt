@@ -1,0 +1,30 @@
+Pest Mantra Operations Control Center — changed files
+
+ADDED
+- apps/admin-web/src/app/dashboard/control-center/page.tsx
+- apps/admin-web/src/components/OperationsControlCenter.tsx
+
+UPDATED
+- apps/admin-web/src/components/Sidebar.tsx
+  Added Operations Center navigation entry.
+- apps/admin-web/src/app/dashboard/page.tsx
+  Added Operations Center quick action.
+- apps/admin-web/src/app/api/projects/route.ts
+  Project proxy now forwards both status and date filters to backend.
+- apps/backend/src/services/project.service.ts
+  Project lists now populate assigned technician identity for dispatch, reports and complaints screens.
+
+FEATURES
+- Live operations KPI strip
+- Today / Tomorrow / custom-date dispatch views
+- Search across project/customer/phone/address/technician
+- Unassigned dispatch queue
+- HTML5 drag-and-drop job dispatch to technicians
+- Touch/mobile-safe Assign button fallback
+- Duty-aware assignment blocking for off-duty technicians
+- Time-slot confirmation modal
+- Existing backend conflict protection surfaced in UI
+- Technician workload cards for selected date
+- Overdue-job alert
+- Refresh projects + technician duty data without page reload
+- Links to Live Map, Projects, Technician profiles and Job details

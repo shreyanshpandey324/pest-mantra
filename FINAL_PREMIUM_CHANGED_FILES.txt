@@ -1,0 +1,30 @@
+ADDED
+- apps/admin-web/src/app/dashboard/customers/page.tsx
+- FINAL_PREMIUM_UPGRADE.md
+- FINAL_PREMIUM_CHANGED_FILES.txt
+
+UPDATED
+- apps/admin-web/src/app/dashboard/page.tsx
+- apps/admin-web/src/components/Topbar.tsx
+- apps/admin-web/src/components/Sidebar.tsx
+- apps/admin-web/src/app/dashboard/projects/page.tsx
+- apps/admin-web/src/components/ProjectsClient.tsx
+- apps/admin-web/src/app/api/projects/route.ts
+- apps/admin-web/src/lib/firebase.ts
+- apps/admin-web/src/components/OtpLoginForm.tsx
+- apps/admin-web/tsconfig.json
+- apps/technician-app/src/app/jobs/page.tsx
+- apps/technician-app/src/components/LocationTracker.tsx
+- apps/technician-app/src/lib/photo-url.ts
+- apps/technician-app/src/lib/firebase.ts
+- apps/technician-app/src/components/OtpLoginForm.tsx
+- apps/technician-app/tsconfig.json
+- apps/backend/src/validators/project.validators.ts
+- apps/backend/src/services/project.service.ts
+- apps/backend/src/config/env.ts
+- apps/backend/.env.example
+
+CLEANED FROM DELIVERABLE
+- apps/backend/dist (stale generated build output)
+- apps/admin-web/tsconfig.tsbuildinfo
+- node_modules / .next / other build caches

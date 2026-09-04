@@ -69,19 +69,6 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
     return;
   }
 
-  // Mongoose cast error — most commonly a malformed ObjectId in a
-  // URL param (e.g. GET /projects/not-a-real-id). Without this,
-  // every such request would fall through to the generic 500 below,
-  // which is misleading — this is a client input error, not a
-  // server failure.
-  if (err instanceof Error && err.name === "CastError") {
-    res.status(400).json({
-      success: false,
-      message: "Invalid ID format",
-    });
-    return;
-  }
-
   logger.error(`Unexpected error at ${req.method} ${req.path}`, err);
 
   res.status(500).json({

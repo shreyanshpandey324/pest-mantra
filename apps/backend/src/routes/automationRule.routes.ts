@@ -1,0 +1,13 @@
+import { Router } from "express";
+import { automationRuleController } from "../controllers/automationRule.controller";
+import { authenticate, requireRole } from "../middleware/auth.middleware";
+import { validateBody } from "../middleware/validate.middleware";
+import { UserRole } from "../models/User";
+import { automationRuleSchema, automationRuleUpdateSchema } from "../validators/automation.validators";
+const router = Router();
+router.use(authenticate, requireRole(UserRole.SUPER_ADMIN, UserRole.OFFICE_ADMIN));
+router.get("/", automationRuleController.list);
+router.post("/", validateBody(automationRuleSchema), automationRuleController.create);
+router.patch("/:id", validateBody(automationRuleUpdateSchema), automationRuleController.update);
+router.post("/seed-defaults", automationRuleController.seedDefaults);
+export default router;

@@ -12,6 +12,7 @@ export interface AuthUser {
   role: UserRole;
   branchId?: string;
   isActive: boolean;
+  otpLoginEnabled: boolean;
   lastLoginAt?: string;
   createdAt: string;
   updatedAt: string;

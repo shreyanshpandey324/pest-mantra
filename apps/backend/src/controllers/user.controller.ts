@@ -18,6 +18,8 @@ import {
 
 import {
   CreateUserInput,
+  OtpAccessInput,
+  ResetUserPasswordInput,
   UpdateUserInput,
 } from "../validators/auth.validators";
 
@@ -30,6 +32,24 @@ import {
 } from "../utils/callerScope";
 
 export const userController = {
+  list: asyncHandler(
+    async (
+      req: AuthenticatedRequest,
+      res: Response
+    ) => {
+      if (!req.user) {
+        throw ApiError.unauthorized();
+      }
+
+      const scope = getCallerScope(req);
+      const users = await userService.listUsers(scope);
+
+      sendSuccess(res, 200, "Users retrieved successfully", {
+        users: users.map((user) => user.toJSON()),
+      });
+    }
+  ),
+
   /**
    * Create user.
    */
@@ -98,8 +118,50 @@ export const userController = {
     }
   ),
 
+  resetPassword: asyncHandler(
+    async (
+      req: AuthenticatedRequest,
+      res: Response
+    ) => {
+      if (!req.user) {
+        throw ApiError.unauthorized();
+      }
+
+      const scope = getCallerScope(req);
+      await userService.resetOfficeAdminPassword(
+        req.params.id,
+        req.body as ResetUserPasswordInput,
+        scope
+      );
+
+      sendSuccess(res, 200, "Office Admin password updated successfully");
+    }
+  ),
+
+  setOtpAccess: asyncHandler(
+    async (
+      req: AuthenticatedRequest,
+      res: Response
+    ) => {
+      if (!req.user) {
+        throw ApiError.unauthorized();
+      }
+
+      const scope = getCallerScope(req);
+      const user = await userService.setOtpAccess(
+        req.params.id,
+        req.body as OtpAccessInput,
+        scope
+      );
+
+      sendSuccess(res, 200, "OTP login access updated", {
+        user: user.toJSON(),
+      });
+    }
+  ),
+
   /**
-   * Delete user.
+   * Deactivate user while preserving historical references.
    */
   delete: asyncHandler(
     async (
@@ -121,7 +183,7 @@ export const userController = {
       sendSuccess(
         res,
         200,
-        "User deleted successfully"
+        "User deactivated successfully"
       );
     }
   ),

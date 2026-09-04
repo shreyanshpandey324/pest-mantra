@@ -27,9 +27,9 @@ export interface LocationLogEntry {
 
   heading: number;
 
-  batteryLevel: number;
+  batteryLevel: number | null;
 
-  isCharging: boolean;
+  isCharging: boolean | null;
 
   recordedAt: string;
 

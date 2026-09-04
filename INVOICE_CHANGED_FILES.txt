@@ -1,0 +1,28 @@
+Pest Mantra Invoice + Payment System — files created/changed
+
+Backend
+- apps/backend/src/models/Invoice.ts (new)
+- apps/backend/src/validators/invoice.validators.ts (new)
+- apps/backend/src/services/invoice.service.ts (new)
+- apps/backend/src/controllers/invoice.controller.ts (new)
+- apps/backend/src/routes/invoice.routes.ts (new)
+- apps/backend/src/routes/index.ts (register /invoices)
+- apps/backend/dist/** (rebuilt backend output includes Invoice module)
+
+Admin Web
+- apps/admin-web/src/types/invoice.ts (new)
+- apps/admin-web/src/app/api/invoices/route.ts (new)
+- apps/admin-web/src/app/api/invoices/[id]/route.ts (new)
+- apps/admin-web/src/app/api/invoices/[id]/status/route.ts (new)
+- apps/admin-web/src/app/api/invoices/[id]/payments/route.ts (new)
+- apps/admin-web/src/app/dashboard/invoices/page.tsx (new)
+- apps/admin-web/src/app/dashboard/invoices/new/page.tsx (new)
+- apps/admin-web/src/app/dashboard/invoices/[id]/page.tsx (new)
+- apps/admin-web/src/components/InvoicesClient.tsx (new)
+- apps/admin-web/src/components/InvoiceForm.tsx (new)
+- apps/admin-web/src/components/InvoiceDetail.tsx (new)
+- apps/admin-web/src/components/Sidebar.tsx (Invoices navigation entry)
+
+Documentation
+- INVOICE_MODULE.md (new)
+- INVOICE_CHANGED_FILES.txt (new)

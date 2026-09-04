@@ -14,6 +14,8 @@ interface TechnicianLiveMapProps {
 
 const GOOGLE_MAPS_API_KEY =
   process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+const GOOGLE_MAPS_MAP_ID =
+  process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID;
 
 function formatLastSeen(recordedAt: string): string {
   return new Date(recordedAt).toLocaleString("en-IN", {
@@ -156,7 +158,7 @@ export default function TechnicianLiveMap({
             zoom: initialLocation
               ? 14
               : 11,
-            mapId: "DEMO_MAP_ID",
+            ...(GOOGLE_MAPS_MAP_ID ? { mapId: GOOGLE_MAPS_MAP_ID } : {}),
             streetViewControl: true,
             mapTypeControl: true,
             fullscreenControl: true,
@@ -230,10 +232,12 @@ export default function TechnicianLiveMap({
                     ? "#16a34a"
                     : "#f59e0b";
 
-                const chargingText =
-                  location.isCharging
-                    ? " • Charging"
-                    : "";
+                const batteryText =
+                  location.batteryLevel === null
+                    ? "Unknown"
+                    : `${Math.round(location.batteryLevel)}%${
+                        location.isCharging ? " • Charging" : ""
+                      }`;
 
                 const googleMapsUrl =
                   `https://www.google.com/maps?q=${location.latitude},${location.longitude}`;
@@ -325,9 +329,7 @@ export default function TechnicianLiveMap({
 
                       <div>
                         <strong>Battery:</strong>
-                        ${Math.round(
-                          location.batteryLevel
-                        )}%${chargingText}
+                        ${batteryText}
                       </div>
 
                       <div style="

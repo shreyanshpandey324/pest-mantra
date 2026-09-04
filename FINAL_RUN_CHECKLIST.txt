@@ -1,0 +1,11 @@
+PEST MANTRA REAL MODE
+
+1. Read REAL_MODE_START_HERE.md
+2. Run npm ci
+3. Run npm run setup:real
+4. Run npm run seed:staff
+5. Run npm run real
+6. Admin: http://localhost:3000/login
+7. Technician: http://localhost:3001/login
+
+No demo session or in-memory demo backend is included in this build.

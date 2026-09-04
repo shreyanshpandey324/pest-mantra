@@ -1,0 +1,92 @@
+ADDED (15)
++ FINAL_MERGE_REPORT.md
++ PHONE_OTP_SETUP.md
++ UNIFIED_MERGE_CHANGED_FILES.txt
++ apps/admin-web/src/app/api/auth/otp/eligibility/route.ts
++ apps/admin-web/src/app/api/auth/otp/verify/route.ts
++ apps/admin-web/src/app/api/users/[id]/otp-access/route.ts
++ apps/admin-web/src/components/OtpAccessPanel.tsx
++ apps/admin-web/src/components/OtpLoginForm.tsx
++ apps/backend/dist/scripts/bootstrapOtpAccess.js
++ apps/backend/dist/scripts/bootstrapOtpAccess.js.map
++ apps/backend/src/scripts/bootstrapOtpAccess.ts
++ apps/backend/uploads/.gitignore
++ apps/technician-app/src/app/api/auth/otp/eligibility/route.ts
++ apps/technician-app/src/app/api/auth/otp/verify/route.ts
++ apps/technician-app/src/components/OtpLoginForm.tsx
+
+MODIFIED (57)
+~ .gitignore
+~ README.md
+~ apps/admin-web/.env.example
+~ apps/admin-web/src/app/api/users/route.ts
+~ apps/admin-web/src/app/login/page.tsx
+~ apps/admin-web/src/components/CreateUserForm.tsx
+~ apps/admin-web/src/components/SettingsView.tsx
+~ apps/admin-web/src/lib/firebase.ts
+~ apps/admin-web/src/types/auth.ts
+~ apps/backend/.env.example
+~ apps/backend/dist/config/env.js
+~ apps/backend/dist/config/env.js.map
+~ apps/backend/dist/config/firebaseAdmin.js
+~ apps/backend/dist/config/firebaseAdmin.js.map
+~ apps/backend/dist/controllers/auth.controller.js
+~ apps/backend/dist/controllers/auth.controller.js.map
+~ apps/backend/dist/controllers/user.controller.js
+~ apps/backend/dist/controllers/user.controller.js.map
+~ apps/backend/dist/middleware/rateLimit.middleware.js
+~ apps/backend/dist/middleware/rateLimit.middleware.js.map
+~ apps/backend/dist/models/User.js
+~ apps/backend/dist/models/User.js.map
+~ apps/backend/dist/routes/auth.routes.js
+~ apps/backend/dist/routes/auth.routes.js.map
+~ apps/backend/dist/routes/user.routes.js
+~ apps/backend/dist/routes/user.routes.js.map
+~ apps/backend/dist/scripts/seedSuperAdmin.js
+~ apps/backend/dist/scripts/seedSuperAdmin.js.map
+~ apps/backend/dist/services/auth.service.js
+~ apps/backend/dist/services/auth.service.js.map
+~ apps/backend/dist/services/user.service.js
+~ apps/backend/dist/services/user.service.js.map
+~ apps/backend/dist/utils/firebaseToken.js
+~ apps/backend/dist/utils/firebaseToken.js.map
+~ apps/backend/dist/validators/auth.validators.js
+~ apps/backend/dist/validators/auth.validators.js.map
+~ apps/backend/package.json
+~ apps/backend/src/config/env.ts
+~ apps/backend/src/config/firebaseAdmin.ts
+~ apps/backend/src/controllers/auth.controller.ts
+~ apps/backend/src/controllers/user.controller.ts
+~ apps/backend/src/middleware/rateLimit.middleware.ts
+~ apps/backend/src/models/User.ts
+~ apps/backend/src/routes/auth.routes.ts
+~ apps/backend/src/routes/user.routes.ts
+~ apps/backend/src/scripts/seedSuperAdmin.ts
+~ apps/backend/src/services/auth.service.ts
+~ apps/backend/src/services/user.service.ts
+~ apps/backend/src/utils/firebaseToken.ts
+~ apps/backend/src/validators/auth.validators.ts
+~ apps/technician-app/.env.example
+~ apps/technician-app/src/app/login/page.tsx
+~ apps/technician-app/src/lib/firebase.ts
+~ apps/technician-app/src/types/auth.ts
+~ docs/FINAL_STATUS.md
+~ docs/FIREBASE_SETUP.md
+~ package.json
+
+DELETED / INTENTIONALLY REMOVED (10)
+- apps/admin-web/src/app/api/auth/google/route.ts
+- apps/admin-web/src/app/api/auth/login/route.ts
+- apps/admin-web/src/components/FirebaseLoginForm.tsx
+- apps/admin-web/src/components/LoginForm.tsx
+- apps/admin-web/tsconfig.tsbuildinfo
+- apps/technician-app/src/app/api/auth/google/route.ts
+- apps/technician-app/src/app/api/auth/login/route.ts
+- apps/technician-app/src/components/FirebaseLoginForm.tsx
+- apps/technician-app/src/components/LoginForm.tsx
+- apps/technician-app/tsconfig.tsbuildinfo
+
+Notes:
+- LoginForm/FirebaseLoginForm and /api/auth/login + /api/auth/google BFF files were intentionally removed for OTP-only interactive authentication.
+- tsconfig.tsbuildinfo files were removed as stale generated build caches.
+- Real Firebase service-account JSON and real environment files are intentionally not packaged.

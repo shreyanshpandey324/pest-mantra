@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Project, ProjectStatus, TechnicianListItem } from "@/types/project";
+import { Project, ProjectPriority, ProjectStatus, TechnicianListItem } from "@/types/project";
 import { ui } from "@/lib/ui-classes";
 
 interface AssignModalProps {
@@ -50,6 +50,7 @@ export function AssignModal({
   const [technicianId, setTechnicianId] = useState("");
   const [scheduledDate, setScheduledDate] = useState(getTodayDateInputValue());
   const [scheduledTimeSlot, setScheduledTimeSlot] = useState("");
+  const [priority, setPriority] = useState<ProjectPriority>(ProjectPriority.NORMAL);
 
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -130,6 +131,7 @@ export function AssignModal({
           technicianId,
           scheduledDate,
           scheduledTimeSlot,
+          priority,
         }),
       });
 
@@ -168,6 +170,25 @@ export function AssignModal({
       </div>
 
       <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4 p-5">
+        <div>
+          <div className="flex items-center justify-between gap-3">
+            <label className={ui.label}>Alert level</label>
+            <span className="text-[10px] text-ink-faint">Technician reminder intensity</span>
+          </div>
+          <div className="mt-2 grid grid-cols-3 gap-2">
+            {[
+              { value: ProjectPriority.NORMAL, label: "Normal", detail: "1 alert" },
+              { value: ProjectPriority.HIGH, label: "Medium", detail: "15 min" },
+              { value: ProjectPriority.URGENT, label: "High", detail: "5 min" },
+            ].map((item) => (
+              <button key={item.value} type="button" onClick={() => setPriority(item.value)} className={`rounded-xl border px-3 py-3 text-left transition ${priority === item.value ? "border-accent bg-accent/5 ring-2 ring-accent/10" : "border-border-default bg-surface"}`}>
+                <span className={`block text-xs font-bold ${item.value === ProjectPriority.URGENT ? "text-danger" : item.value === ProjectPriority.HIGH ? "text-warning" : "text-ink"}`}>{item.label}</span>
+                <span className="mt-1 block text-[10px] text-ink-faint">{item.detail}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="flex flex-col gap-1.5">
           <label className={ui.label} htmlFor="assignTechnicianId">
             Technician
