@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -15,84 +15,84 @@ interface TourStep {
 const STEPS: TourStep[] = [
   {
     href: "/dashboard",
-    eyebrow: "01 · Business pulse",
+    eyebrow: "01 Â· Business pulse",
     title: "Executive Dashboard",
-    description: "A single view of today’s field operations, collections, sales follow-ups and service risks.",
-    highlights: ["Today’s jobs & dispatch", "Pest Mantra Intelligence command bar", "Collections, profitability and risk alerts"],
+    description: "A single view of todayâ€™s field operations, collections, sales follow-ups and service risks.",
+    highlights: ["Todayâ€™s jobs & dispatch", "Pest Mantra Intelligence command bar", "Collections, profitability and risk alerts"],
   },
   {
     href: "/dashboard/control-center",
-    eyebrow: "02 · Field operations",
+    eyebrow: "02 Â· Field operations",
     title: "Operations Control Center",
     description: "Dispatch and technician workload are managed from one operational workspace.",
     highlights: ["Smart technician recommendations", "Skill + availability + workload scoring", "Schedule conflict protection"],
   },
   {
     href: "/dashboard/customers",
-    eyebrow: "03 · Customer intelligence",
+    eyebrow: "03 Â· Customer intelligence",
     title: "Customer 360",
     description: "Search a customer once and see the connected service, sales and payment history.",
     highlights: ["Customer health score & lifetime value", "Projects, invoices and quotations", "AMC, payment exposure and service risk"],
   },
   {
     href: "/dashboard/leads",
-    eyebrow: "04 · Sales workflow",
-    title: "CRM → Quote → Invoice",
+    eyebrow: "04 Â· Sales workflow",
+    title: "CRM â†’ Quote â†’ Invoice",
     description: "The sales journey starts with a lead and continues through quotation, service and collection.",
     highlights: ["Lead follow-ups", "Quotation pipeline", "Invoice and payment tracking"],
   },
   {
     href: "/dashboard/service-contracts",
-    eyebrow: "05 · Recurring revenue",
+    eyebrow: "05 Â· Recurring revenue",
     title: "AMC & Service Retention",
     description: "Recurring contracts and service reminders help retain customers beyond one-time jobs.",
     highlights: ["AMC contracts", "Upcoming visits", "Service due and renewal visibility"],
   },
   {
     href: "/dashboard/complaints",
-    eyebrow: "06 · Customer support",
+    eyebrow: "06 Â· Customer support",
     title: "Complaints & SLA",
     description: "Customer issues are tracked as accountable tickets instead of being lost in calls or messages.",
     highlights: ["Priority and SLA", "Assignment and resolution", "Escalation visibility"],
   },
   {
     href: "/dashboard/customer-master",
-    eyebrow: "07 · Enterprise customers",
+    eyebrow: "07 Â· Enterprise customers",
     title: "Customer Master & Multi-site",
     description: "Permanent customer records support multiple service locations, company details, tags and international operating profiles.",
     highlights: ["Residential, commercial & enterprise accounts", "Multiple service sites per customer", "Customer 360 connection"],
   },
   {
     href: "/dashboard/automations",
-    eyebrow: "08 · Automation",
+    eyebrow: "08 Â· Automation",
     title: "Automation & Communication",
     description: "Operational events can create in-app alerts and provider-ready WhatsApp or SMS messages without pretending an external provider is already connected.",
     highlights: ["Invoice, service, AMC & SLA rules", "Enable or pause automations", "Retryable outbound communication queue"],
   },
   {
     href: "/dashboard/approvals",
-    eyebrow: "09 · Controls",
+    eyebrow: "09 Â· Controls",
     title: "Approval Center",
     description: "High-impact finance and stock decisions can be routed through an accountable approval queue.",
     highlights: ["Expense, refund & stock approvals", "Approve / reject with resolution notes", "Audit-friendly governance"],
   },
   {
     href: "/dashboard/audit-logs",
-    eyebrow: "10 · Governance",
+    eyebrow: "10 Â· Governance",
     title: "Audit & Accountability",
     description: "Important administrative actions remain traceable for operational accountability.",
     highlights: ["Actor and action history", "Sensitive fields protected", "System-wide traceability"],
   },
   {
     href: "/dashboard/system-health",
-    eyebrow: "11 · Commercial readiness",
+    eyebrow: "11 Â· Commercial readiness",
     title: "System Health & Integrations",
     description: "The platform clearly separates what is live, provider-ready or awaiting production credentials.",
     highlights: ["Database & scheduler readiness", "Communication/provider capability", "PWA, storage and payment readiness"],
   },
   {
     href: "/dashboard/project-overview",
-    eyebrow: "12 · Complete platform",
+    eyebrow: "12 Â· Complete platform",
     title: "Project Overview",
     description: "Finish with the complete architecture, roles, modules and end-to-end service workflow.",
     highlights: ["Admin Web + Intelligence", "Technician App + GPS proof", "Customer Portal + verified service records"],
@@ -121,7 +121,7 @@ function StepPanel({
             <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent">{step.eyebrow}</p>
             <h2 className="mt-1 text-lg font-semibold text-ink">{step.title}</h2>
           </div>
-          <button type="button" onClick={onClose} className="rounded-lg px-2 py-1 text-ink-muted hover:bg-surface hover:text-ink" aria-label="Close guided tour">×</button>
+          <button type="button" onClick={onClose} className="rounded-lg px-2 py-1 text-ink-muted hover:bg-surface hover:text-ink" aria-label="Close guided tour">Ã—</button>
         </div>
       </div>
       <div className="px-5 py-4">
@@ -130,7 +130,7 @@ function StepPanel({
           <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-faint">What this screen demonstrates</p>
           <ul className="mt-2 space-y-2 text-sm text-ink">
             {step.highlights.map((item) => (
-              <li key={item} className="flex gap-2"><span className="text-success">✓</span><span>{item}</span></li>
+              <li key={item} className="flex gap-2"><span className="text-success">âœ“</span><span>{item}</span></li>
             ))}
           </ul>
         </div>
@@ -144,7 +144,7 @@ function StepPanel({
         <span className="text-xs text-ink-faint">{index + 1} / {STEPS.length}</span>
         <div className="flex gap-2">
           <button type="button" onClick={onPrevious} disabled={index === 0} className="rounded-lg border border-border-default px-3 py-2 text-xs font-semibold text-ink-muted disabled:opacity-40">Back</button>
-          <button type="button" onClick={onNext} className="rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-white hover:opacity-90">{isLast ? "Finish" : "Next →"}</button>
+          <button type="button" onClick={onNext} className="rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-white hover:opacity-90">{isLast ? "Finish" : "Next â†’"}</button>
         </div>
       </div>
     </div>
@@ -162,6 +162,7 @@ export function ProductTour() {
       const id = window.setTimeout(() => setWelcomeOpen(true), 650);
       return () => window.clearTimeout(id);
     }
+    return undefined;
   }, []);
 
   const activeStep = useMemo(() => (tourIndex === null ? null : STEPS[tourIndex]), [tourIndex]);
@@ -187,7 +188,7 @@ export function ProductTour() {
   return (
     <>
       <div className="fixed bottom-5 left-1/2 z-[70] flex -translate-x-1/2 items-center gap-1 rounded-2xl border border-border-strong bg-surface/95 p-1.5 shadow-xl shadow-black/30 backdrop-blur md:left-auto md:right-5 md:translate-x-0">
-        <button type="button" onClick={startTour} className="rounded-xl bg-accent px-3 py-2 text-xs font-semibold text-white">▶ Product Tour</button>
+        <button type="button" onClick={startTour} className="rounded-xl bg-accent px-3 py-2 text-xs font-semibold text-white">â–¶ Product Tour</button>
         <Link href="/dashboard/project-overview" className="rounded-xl px-3 py-2 text-xs font-semibold text-ink-muted hover:bg-surface-2 hover:text-ink">Overview</Link>
       </div>
 
@@ -196,16 +197,16 @@ export function ProductTour() {
         <div className="fixed inset-0 z-[100] flex items-center justify-center pm-modal-backdrop p-4">
           <div className="w-full max-w-xl overflow-hidden rounded-3xl border border-accent/30 bg-surface shadow-2xl">
             <div className="bg-gradient-to-br from-accent/20 via-surface to-surface px-7 py-7">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent">Pest Mantra · Product Tour</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent">Pest Mantra Â· Product Tour</p>
               <h2 className="mt-3 text-3xl font-semibold text-ink">The platform explains itself.</h2>
               <p className="mt-3 max-w-lg text-sm leading-6 text-ink-muted">Use the guided tour to walk through the complete pest-control business workflow without needing a separate presentation.</p>
               <div className="mt-6 grid gap-3 sm:grid-cols-3">
                 {["Admin operations", "Customer lifecycle", "Field technician workflow"].map((item) => (
-                  <div key={item} className="rounded-xl border border-border-default bg-surface/80 p-3 text-sm font-semibold text-ink">✓ {item}</div>
+                  <div key={item} className="rounded-xl border border-border-default bg-surface/80 p-3 text-sm font-semibold text-ink">âœ“ {item}</div>
                 ))}
               </div>
               <div className="mt-7 flex flex-wrap gap-3">
-                <button type="button" onClick={startTour} className="rounded-xl bg-accent px-5 py-3 text-sm font-semibold text-white">Start guided tour →</button>
+                <button type="button" onClick={startTour} className="rounded-xl bg-accent px-5 py-3 text-sm font-semibold text-white">Start guided tour â†’</button>
                 <Link href="/dashboard/project-overview" onClick={closeWelcome} className="rounded-xl border border-border-strong px-5 py-3 text-sm font-semibold text-ink">Open project overview</Link>
                 <button type="button" onClick={closeWelcome} className="px-3 py-3 text-sm text-ink-muted">Explore myself</button>
               </div>
@@ -232,3 +233,5 @@ export function ProductTour() {
     </>
   );
 }
+
+
