@@ -1,4 +1,4 @@
-import { OtpLoginForm } from "@/components/OtpLoginForm";
+import { LoginForm } from "@/components/LoginForm";
 import { DemoLoginButton } from "@/components/DemoLoginButton";
 import { ui } from "@/lib/ui-classes";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
@@ -32,7 +32,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           <div className="mb-6">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent">Technician Login</p>
             <h2 className="mt-1.5 text-2xl font-semibold">Continue to today&apos;s jobs</h2>
-            <p className="mt-2 text-sm text-ink-muted">{demoMode ? "Demo access is unlocked for company testing." : "Use the approved mobile number assigned to your technician account."}</p>
+            <p className="mt-2 text-sm text-ink-muted">{demoMode ? "Demo access is unlocked for company testing." : "Use your registered mobile number and password."}</p>
           </div>
 
           {notAuthorized ? (
@@ -41,7 +41,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             </div>
           ) : null}
 
-          {demoMode ? <DemoLoginButton redirectTo={redirectTo} /> : <OtpLoginForm redirectTo={redirectTo} />}
+          {demoMode ? <DemoLoginButton redirectTo={redirectTo} /> : <LoginForm redirectTo={redirectTo} />}
         </div>
       </section>
     </main>
