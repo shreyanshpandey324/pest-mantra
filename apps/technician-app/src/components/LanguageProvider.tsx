@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
@@ -42,7 +42,7 @@ function applyAttrs(element: Element, language: AppLanguage) {
 }
 function translateTree(root: Node, language: AppLanguage) {
   if (root.nodeType === Node.TEXT_NODE) { applyText(root as Text, language); return; }
-  if (![Node.ELEMENT_NODE, Node.DOCUMENT_FRAGMENT_NODE, Node.DOCUMENT_NODE].includes(root.nodeType)) return;
+  if (root.nodeType !== Node.ELEMENT_NODE && root.nodeType !== Node.DOCUMENT_FRAGMENT_NODE && root.nodeType !== Node.DOCUMENT_NODE) return;
   if (root.nodeType === Node.ELEMENT_NODE) applyAttrs(root as Element, language);
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
   let node = walker.nextNode();
@@ -67,3 +67,5 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }
 export function useLanguage() { const value = useContext(Context); if (!value) throw new Error("useLanguage must be used inside LanguageProvider"); return value; }
+
+
