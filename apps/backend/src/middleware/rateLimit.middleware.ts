@@ -3,12 +3,16 @@ import rateLimit from "express-rate-limit";
 /**
  * Login is the most brute-forceable endpoint in the whole system,
  * so it gets its own tight limiter in addition to the global one.
- * Keyed by IP; account-level lockout (see User model) is the
+ * Keyed by phone/account; account-level lockout (see User model) is the
  * second, independent layer of defense against credential stuffing.
  */
 export const loginRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   limit: 10,
+  keyGenerator: (req) => {
+    const phone = typeof req.body?.phone === "string" ? req.body.phone.trim() : "";
+    return phone || "missing-phone";
+  },
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -46,7 +50,7 @@ export const otpVerifyRateLimiter = rateLimit({
 
 export const globalRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 300,
+  limit: 3000,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
