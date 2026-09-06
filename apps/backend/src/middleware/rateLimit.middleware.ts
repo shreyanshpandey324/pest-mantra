@@ -9,6 +9,7 @@ import rateLimit from "express-rate-limit";
 export const loginRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   limit: 10,
+  skipSuccessfulRequests: true,
   keyGenerator: (req) => {
     const phone = typeof req.body?.phone === "string" ? req.body.phone.trim() : "";
     return phone || "missing-phone";
