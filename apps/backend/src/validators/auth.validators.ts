@@ -96,11 +96,14 @@ export const createUserSchema = z.object({
     .trim()
     .optional(),
 }).superRefine((data, ctx) => {
-  if (data.role === UserRole.OFFICE_ADMIN && !data.password) {
+  if (
+    (data.role === UserRole.OFFICE_ADMIN || data.role === UserRole.TECHNICIAN) &&
+    !data.password
+  ) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ["password"],
-      message: "Password is required for Office Admin accounts",
+      message: "Password is required for Office Admin and Technician accounts",
     });
   }
 });
@@ -128,6 +131,12 @@ export const updateUserSchema = z.object({
     .trim()
     .email()
     .optional(),
+
+  password: z
+    .string()
+    .min(8, "Password must be at least 8 characters")
+    .max(128, "Password is too long")
+ .optional(),
 
   branchId: z
     .string()
@@ -160,7 +169,7 @@ export const resetUserPasswordSchema = z.object({
   password: z
     .string()
     .min(8, "Password must be at least 8 characters")
-    .max(128, "Password is too long"),
+    .max(128, "Password is too long")
 });
 
 export type ResetUserPasswordInput = z.infer<typeof resetUserPasswordSchema>;

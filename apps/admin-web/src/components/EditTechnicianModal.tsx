@@ -70,6 +70,9 @@ export function EditTechnicianModal({
   const [isActive, setIsActive] =
     useState(technician.isActive);
 
+  const [newPassword, setNewPassword] =
+    useState('');
+
   const [error, setError] =
     useState<string | null>(null);
 
@@ -123,6 +126,11 @@ export function EditTechnicianModal({
       return;
     }
 
+    if (newPassword.length > 0 && newPassword.length < 8) {
+      setError('Password must be at least 8 characters.');
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -170,6 +178,30 @@ export function EditTechnicianModal({
 
         setIsSubmitting(false);
         return;
+      }
+
+      if (newPassword.length > 0) {
+        const passwordResponse = await fetch(
+          "/api/users/" + technician.id + "/password",
+          {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ password: newPassword }),
+          }
+        );
+
+        const passwordJson = await passwordResponse.json();
+
+        if (!passwordResponse.ok || !passwordJson.success) {
+          setError(
+            passwordJson.message ??
+              "Unable to update technician password."
+          );
+          setIsSubmitting(false);
+          return;
+        }
       }
 
       onUpdated();
@@ -264,6 +296,20 @@ return (
               onChange={(e) =>
                 setEmail(e.target.value)
               }
+            />
+          </div>
+
+          <div>
+            <label className={ui.label}>
+              New Login Password (Optional)
+            </label>
+            <input
+              type="password"
+              autoComplete="new-password"
+              className={ui.input}
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="Leave blank to keep current password"
             />
           </div>
 

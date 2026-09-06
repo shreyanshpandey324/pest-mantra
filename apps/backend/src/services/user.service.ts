@@ -420,8 +420,11 @@ export const userService = {
     input: ResetUserPasswordInput,
     scope: CallerScope
   ): Promise<void> {
-    if (scope.role !== UserRole.SUPER_ADMIN) {
-      throw ApiError.forbidden("Only a Super Admin can reset admin passwords");
+    if (
+      scope.role !== UserRole.SUPER_ADMIN &&
+      scope.role !== UserRole.OFFICE_ADMIN
+    ) {
+      throw ApiError.forbidden("You do not have permission to reset staff passwords");
     }
 
     if (!mongoose.Types.ObjectId.isValid(userId)) {
@@ -433,9 +436,13 @@ export const userService = {
       throw ApiError.notFound("User not found");
     }
 
-    if (user.role !== UserRole.OFFICE_ADMIN) {
-      throw ApiError.badRequest("Password reset here is only available for Office Admin accounts");
+    if (user.role !== UserRole.OFFICE_ADMIN && user.role !== UserRole.TECHNICIAN) {
+      throw ApiError.badRequest("Password reset is available for Office Admin and Technician accounts");
     }
+
+    assertSameCompany(user, scope);
+    assertSameBranch(user, scope);
+    assertCanManageRole(user.role, scope);
 
     user.passwordHash = input.password;
     user.tokenVersion = (user.tokenVersion ?? 0) + 1;

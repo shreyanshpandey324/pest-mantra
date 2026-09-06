@@ -81,7 +81,10 @@ router.post(
 router.patch(
   "/:id/password",
   authenticate,
-  requireRole(UserRole.SUPER_ADMIN),
+  requireRole(
+    UserRole.SUPER_ADMIN,
+    UserRole.OFFICE_ADMIN
+  ),
   validateBody(resetUserPasswordSchema),
   userController.resetPassword
 );
